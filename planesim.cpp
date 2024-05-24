@@ -2,7 +2,6 @@
 #include <cmath>
 #include <vector>
 #include <random>
-#include <chrono>
 
 #define pi 3.14159
 #define KERBIN_STDGP (KERBIN_RADIUS * KERBIN_RADIUS * 9.81)
