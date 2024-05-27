@@ -35,7 +35,7 @@ A lot of these programs are unfinished and never will be completed.
  - ```shift_assist.py```: Part of a multiple gravity assist planner.
  - ```tylo_landing.py```: Optimizes Tylo landers for minimum mass.
 
-### Minecraft simulation:
+### Minecraft simulations:
  - ```Wheat.py```: Finds optimal time to harvest a wheat farm. One of my first programs so isn't very good.
 
 ### TPT simulations:
