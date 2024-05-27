@@ -1,7 +1,9 @@
 # sims
-My KSP simulations and optimizers. Please note that these were built for myself, not for anyone else, so it might be hard to use. No tech support will be provided by me.
+My simulations and optimizers. Please note that these were built for myself, not for anyone else, so it might be hard to use. No tech support will be provided by me.
 
 ## Brief Code Descriptions
+
+### KSP Simulations:
  - ```comms.py```: Optimizes satellite communication networks with a given number of satellites for maximum reliability.
  - ```fuelopt.py```: Optimizes the distribution of fuel across rocket stages for maximum delta-v.
  - ```graphtraverse.py```: Optimizes the location of a mothership in the Jool system for the most efficient Jool-5. (yes I know it's Elliptical Laythe and Tylo Orbit)
