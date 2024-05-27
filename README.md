@@ -10,5 +10,8 @@ My simulations and optimizers. Please note that these were built for myself, not
  - ```ion.go```: Optimizes a Moho SSTO for minimum mass.
  - ```ion_engine.py```: Optimizes ion chairs for minimum mass while still being able to go to Mun.
  - ```j5ssto.py```: Optimizes Jool-5 SSTO route for maximum fractional payload.
- - ```planesim.cpp```: Optimizes RAPIER-based ascent profiles to reach a given suborbital trajectory using minimal fuel.
+ - ```planesim.cpp```: Optimizes RAPIER-based ascent profiles to reach a given suborbital trajectory using minimal fuel. One of my first C++ programs so may contain bad practices.
  - ```tylo_landing.py```: Optimizes Tylo landers for minimum mass.
+
+### Minecraft simulation:
+ - ```Wheat.py```: Finds optimal time to harvest a wheat farm. One of my first programs so isn't very good.
