@@ -33,7 +33,10 @@ A lot of these programs are unfinished and never will be completed.
  - ```j5ssto.py```: Optimizes Jool-5 SSTO route for maximum fractional payload.
  - ```planesim.cpp```: Optimizes RAPIER-based ascent profiles to reach a given suborbital trajectory using minimal fuel. One of my first C++ programs so may contain bad practices.
  - ```shift_assist.py```: Part of a multiple gravity assist planner.
+ - ```single_stage.py```: Optimizes when to use different engines for the most efficient landing/ascent on non-atmospheric bodies.
  - ```tylo_landing.py```: Optimizes Tylo landers for minimum mass.
+ - ```tylo_optimizer_test.py```: An example of how to use ```single_stage.py``` to optimize a Tylo lander.
+ - ```utils.py```: A utils library for ```single_stage.py```.
 
 ### Minecraft simulations:
  - ```Wheat.py```: Finds optimal time to harvest a wheat farm. One of my first programs so isn't very good.
