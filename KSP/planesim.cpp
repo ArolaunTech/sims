@@ -266,7 +266,8 @@ double temperatureAlt(double alt, double x, double y) {
 }
 
 double flowcap(double x) {
-	return 5.5 * x/(x + 5.5); //Not the real flowcap function! Please tell me how this actually works
+	if (x <= 3.0) return x;
+	return 6.0 * x/(x + 3.0);
 }
 
 double RAPIERThrust(double vx, double vy, double alt, bool mode, double x, double y, double temperature, double pressure) {
@@ -389,7 +390,7 @@ vector2D calculateWingForce(double x, double y, double vx, double vy, double cx,
 simulationResult simulate(const std::vector<std::vector<double> > code, double incidence, double startingMass, double targetApo, double targetPeri, double wingarea) {
 	double x = 0.0;
 	double y = KERBIN_RADIUS;
-	double vx = 2.0 * pi * y/KERBIN_ROT;
+	double vx = 2.0 * pi * y/KERBIN_ROT + 100.0;
 	double vy = 0.0;
 
 	double temperature = 0.0;
@@ -403,7 +404,7 @@ simulationResult simulate(const std::vector<std::vector<double> > code, double i
 	double currWingMag = 1.0;
 	double currAirThrottle = 1.0;
 	double currLFOXThrottle = 0.0;
-	double currOrientation = 0.3 * pi;
+	double currOrientation = 0.1 * pi;
 	double currProgradeFrac = 0.0;
 
 	double cosIncidence = std::cos(incidence);
@@ -578,9 +579,9 @@ simulationResult simulate(const std::vector<std::vector<double> > code, double i
 
 	simulationResult res;
 	res.finalMass = currMass;
-	res.punishMass = currMass * std::exp(-error/(305.0 * 9.81));
-	res.totalLF = totalLF;
-	res.totalLFOX = totalLFOX + currMass * (1.0 - std::exp(-error/(305.0 * 9.81)));
+	res.punishMass = currMass * std::exp(-error/(800.0 * 9.81));
+	res.totalLF = totalLF + currMass * (1.0 - std::exp(-error/(800.0 * 9.81)));
+	res.totalLFOX = totalLFOX;
 	res.apoapsis = apoapsis;
 	res.periapsis = periapsis;
 
@@ -727,7 +728,7 @@ int main() {
 	std::cout << "Simulation Results: " << res.punishMass << ", Total LF Used: " << res.totalLF << "t, Total LFOX Used: " << res.totalLFOX << "t\n";
 	*/
 
-	double optimizerRes = findBestAscent(5, 0.1, 6.38, 97782.0, -371211.336852, 1.36);
+	double optimizerRes = findBestAscent(5, 0.01, 10.0, 75000.0, -3.0, 2.36);
 	std::cout << "Optimizer Results: " << optimizerRes << "\n";
 	return 0;
 }
