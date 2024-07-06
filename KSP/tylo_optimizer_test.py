@@ -2,6 +2,7 @@ import utils
 import single_stage
 
 import math
+import random
 
 planet_name = "tylo"
 altitude = 9100
@@ -12,9 +13,10 @@ mass_in_orbit = 466650
 engines = []
 
 engine_count = {
-    "Nerv": 15,
+    "Nerv": 16,
     "Rapier": 15,
-    "Dawn": 15,
+    "Wolfhound": 2,
+    "Dart": 2,
 }
 min_engine_count = {
     "Nerv": 15,
@@ -30,7 +32,9 @@ def simulate_landing_with_craft(craft, planet_name, altitude, logging = False):
 
     # Build list of specific impulse
     list_of_isp = []
-    for engine in craft.engines:
+    for engine, count in craft.engines.items():
+        if count == 0:
+            continue
         isp = utils.engine_info[engine][0]
         if isp not in list_of_isp:
             list_of_isp.append(isp)
@@ -142,20 +146,13 @@ def simulate_landing_with_craft(craft, planet_name, altitude, logging = False):
 def payload_capacity(craft):
     # Mass - total engine mass - total (used) fuel tank mass
     mass = craft.wet_mass
-    for engine in craft.engines:
-        mass -= utils.engine_info[engine][4]
+    for engine, count in craft.engines.items():
+        mass -= utils.engine_info[engine][4] * count
     for fuel_type, amount in craft.fuel_used.items():
         fuel_mass = utils.fuel_masses[fuel_type] * amount
         fuel_tank_mass = float(fuel_mass) / utils.fuel_tank_info[fuel_type][1]
         mass -= (fuel_tank_mass)
     return mass
-
-def build_engine_array_from_count(engine_count):
-    engine_list = []
-    for a, b in engine_count.items():
-        for i in range(b):
-            engine_list.append(a)
-    return engine_list
 
 improved_last_iteration = True
 
@@ -165,60 +162,79 @@ best_engine_count = engine_count.copy()
 
 craft = single_stage.SingleStageCraft()
 fuel_levels = dict()
-engines = build_engine_array_from_count(engine_count)
-craft.manual_instantiate(engines, fuel_levels, mass_in_orbit)
-simulate_landing_with_craft(craft, "tylo", altitude)
+craft.manual_instantiate(engine_count, fuel_levels, mass_in_orbit)
+simulate_landing_with_craft(craft, planet_name, altitude)
 max_payload_remaining = payload_capacity(craft)
-print(f"Reference payload capacity (Rapier/Nerv only): {max_payload_remaining}")
+print(f"Reference payload capacity: {max_payload_remaining}")
 
-while improved_last_iteration:
+# Simulated annealing.
+# Temperature controls the average magnitude of proposed changes to the engine count.
+# This will cool down over time until it's equal to one, at which point we do a
+# deterministic greedy search.
+# Hopefully this can hit a bunch of different local maxima.
+temperature = 20.0
+cooling_factor = 0.99
+n_iterations = 0
+while improved_last_iteration or temperature > 1:
+    n_iterations += 1
+    if (n_iterations % 20 == 0):
+        print(f"Temperature: {temperature}")
+    if (temperature > 1):
+        temperature *= cooling_factor
+        if (temperature <= 1):
+            print("Annealed")
+            temperature = 1
     improved_last_iteration = False
     # Each iteration:
     # Try adding one engine and removing one engine, and do a simulation each time
     for engine, engine_info in utils.engine_info.items():
-        # Try adding an engine
+        add_value = random.randrange(1, int(temperature) + 1)
+        # Try adding one or more engines
         test_engine_count = best_engine_count.copy()
         if engine in test_engine_count:
-            test_engine_count[engine] += 1
+            test_engine_count[engine] += add_value
         else:
-            test_engine_count[engine] = 1
+            test_engine_count[engine] = add_value
         fuel_levels = dict()
-        test_engines = build_engine_array_from_count(test_engine_count)
         test_craft = single_stage.SingleStageCraft()
-        test_craft.manual_instantiate(test_engines, fuel_levels, mass_in_orbit)
-        simulate_landing_with_craft(test_craft, "tylo", altitude, logging = False)
+        test_craft.manual_instantiate(test_engine_count, fuel_levels, mass_in_orbit)
+        simulate_landing_with_craft(test_craft, planet_name, altitude, logging = False)
         test_payload = payload_capacity(test_craft)
         if test_payload > max_payload_remaining:
-            print(f"Added {engine}")
+            print(f"Added {add_value}x {engine}")
             improved_last_iteration = True
             max_payload_remaining = test_payload
             print(f"Payload capacity: {test_payload}")
             best_engine_count = test_engine_count
         # Removing an engine
+        subtract_value = random.randrange(1, int(temperature) + 1)
         test_engine_count = best_engine_count.copy()
         if engine in test_engine_count:
-            if engine in min_engine_count and test_engine_count[engine] == min_engine_count[engine]:
-                # Can't remove this engine as it's needed for something else
-                continue
-            else:
-                if test_engine_count[engine] > 0:
-                    test_engine_count[engine] -= 1
-                fuel_levels = dict()
+            min_engines = 0
+            if engine in min_engine_count:
+                min_engines = min_engine_count[engine]
+            subtract_value = min(subtract_value, test_engine_count[engine] - min_engines)
+            test_engine_count[engine] -= subtract_value
+            fuel_levels = dict()
         else:
             continue
-        test_engines = build_engine_array_from_count(test_engine_count)
         craft = single_stage.SingleStageCraft()
-        craft.manual_instantiate(test_engines, fuel_levels, mass_in_orbit)
-        simulate_landing_with_craft(craft, "tylo", altitude)
+        craft.manual_instantiate(test_engine_count, fuel_levels, mass_in_orbit)
+        simulate_landing_with_craft(craft, planet_name, altitude)
         test_payload = payload_capacity(craft)
         if test_payload > max_payload_remaining:
-            print(f"Removed {engine}")
+            print(f"Removed {subtract_value}x {engine}")
             improved_last_iteration = True
             max_payload_remaining = test_payload
             print(f"Payload capacity: {test_payload}")
             best_engine_count = test_engine_count
 
 print("Local max reached")
+print(f"Iterations: {n_iterations}")
 for a, b in best_engine_count.items():
     if b > 0:
         print(f"{a}: {b}")
+# Just for fun, print out ascent profile info
+craft = single_stage.SingleStageCraft()
+craft.manual_instantiate(best_engine_count, dict(), mass_in_orbit)
+simulate_landing_with_craft(craft, planet_name, altitude, logging=True)

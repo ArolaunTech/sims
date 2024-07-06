@@ -2,12 +2,12 @@ import utils
 
 class SingleStageCraft:
     def __init__(self):
-        # List of engines. String name
-        self.engines = []
+        # List of engines. Map name to count
+        self.engines = {}
         
-        # Track whether each engine is on or off + fuel consumption per sec per type.
+        # Track whether each engine group is on or off + fuel consumption per sec per type.
         # We're going to assume vacuum landings for now.
-        self.engine_activations = []
+        self.engine_activations = dict()
         self.fuel_consumption = {
             "LiquidFuel": 0,
             "LFOx": 0,
@@ -41,29 +41,28 @@ class SingleStageCraft:
         #self.fuel_levels = _fuel_levels
         self.wet_mass = _wet_mass
         for engine in self.engines:
-            self.engine_activations.append(False)
+            self.engine_activations[engine] = False
 
     def instantiate_from_craft_file(self, craft_file_path):
         # Not implemented yet!
         print("WIP")
 
     def toggle_engines_by_isp(self, target_isp):
-        for i in range(len(self.engines)):
-            engine_name = self.engines[i]
-            engine_info = utils.engine_info[engine_name]
+        for name, count in self.engines.items():
+            engine_info = utils.engine_info[name]
             if engine_info[0] == target_isp:
-                engineOn = self.engine_activations[i]
+                engineOn = self.engine_activations[name]
                 if not engineOn:
                     # Turn engine on
-                    self.engine_activations[i] = True
+                    self.engine_activations[name] = True
                     
-                    self.total_thrust += engine_info[2]
-                    self.fuel_consumption[engine_info[1]] += engine_info[3]
+                    self.total_thrust += engine_info[2] * count
+                    self.fuel_consumption[engine_info[1]] += engine_info[3] * count
                 else:
                     # Turn engine off
-                    self.engine_activations[i] = False
-                    self.total_thrust -= engine_info[2]
-                    self.fuel_consumption[engine_info[1]] -= engine_info[3]
+                    self.engine_activations[name] = False
+                    self.total_thrust -= engine_info[2] * count
+                    self.fuel_consumption[engine_info[1]] -= engine_info[3] * count
 
     def simulate_burn(self, delta_time):
         # just reduce fuel levels and wet mass
