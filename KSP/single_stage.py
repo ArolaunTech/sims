@@ -26,19 +26,18 @@ class SingleStageCraft:
         }
         self.fuel_used = self.fuel_levels.copy()
         
-        self.dry_mass = 0
+        #self.dry_mass = 0
         
         self.wet_mass = 0
     
         self.total_thrust = 0
-
+        self.mass_flow = 0
     # Arguments:
     # List of tuples of (isp, fueltype, thrust)
     # Dictionary of fuel type and fuel level
     # Number for dry mass
     def manual_instantiate(self, _engines, _fuel_levels, _wet_mass, respect_tank_mass=False):
         self.engines = _engines.copy()
-        #self.fuel_levels = _fuel_levels
         self.wet_mass = _wet_mass
         for engine in self.engines:
             self.engine_activations[engine] = False
@@ -52,17 +51,20 @@ class SingleStageCraft:
             engine_info = utils.engine_info[name]
             if engine_info[0] == target_isp:
                 engineOn = self.engine_activations[name]
+                fuel_type = engine_info[1]
+                fuel_added = engine_info[3] * count
                 if not engineOn:
                     # Turn engine on
                     self.engine_activations[name] = True
-                    
                     self.total_thrust += engine_info[2] * count
-                    self.fuel_consumption[engine_info[1]] += engine_info[3] * count
+                    self.fuel_consumption[fuel_type] += fuel_added
+                    self.mass_flow += fuel_added * utils.fuel_masses[fuel_type]
                 else:
                     # Turn engine off
                     self.engine_activations[name] = False
                     self.total_thrust -= engine_info[2] * count
-                    self.fuel_consumption[engine_info[1]] -= engine_info[3] * count
+                    self.mass_flow -= fuel_added * utils.fuel_masses[fuel_type]
+                    self.fuel_consumption[fuel_type] -= fuel_added
 
     def simulate_burn(self, delta_time):
         # just reduce fuel levels and wet mass
@@ -70,11 +72,8 @@ class SingleStageCraft:
         for fuel_type, consumption_rate in self.fuel_consumption.items():
             fuel_used_tick = consumption_rate * delta_time
             self.fuel_used[fuel_type] += fuel_used_tick
-            self.wet_mass -= fuel_used_tick * utils.fuel_masses[fuel_type]
+        self.wet_mass -= delta_time * self.mass_flow
 
     def get_average_isp(self):
         # Thrust in newtons divided by mass flow rate in kg/s
-        mass_flow = 0
-        for fuel_type, consumption_rate in self.fuel_consumption.items():
-            mass_flow += consumption_rate * utils.fuel_masses[fuel_type]
-        return self.total_thrust / mass_flow
+        return self.total_thrust / self.mass_flow
