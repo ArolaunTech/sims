@@ -37,6 +37,7 @@ A lot of these programs are unfinished and never will be completed.
  - ```tylo_landing.py```: Optimizes Tylo landers for minimum mass.
  - ```tylo_optimizer_test.py```: An example of how to use ```single_stage.py``` to optimize a Tylo lander.
  - ```utils.py```: A utils library for ```single_stage.py```.
+ - ```vacuumoptimizer.cpp```: Optimizes single-stage vacuum landers for maximum fractional payload by changing engine count and throttle.
 
 ### Minecraft simulations:
  - ```Wheat.py```: Finds optimal time to harvest a wheat farm. One of my first programs so isn't very good.
