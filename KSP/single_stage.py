@@ -65,7 +65,14 @@ class SingleStageCraft:
                     self.total_thrust -= engine_info[2] * count
                     self.mass_flow -= fuel_added * utils.fuel_masses[fuel_type]
                     self.fuel_consumption[fuel_type] -= fuel_added
-
+    def turn_engines_off(self):
+        for name, value in self.engine_activations.items():
+            self.engine_activations[name] = False
+        self.total_thrust = 0
+        self.mass_flow = 0
+        for fuel_type, value in self.fuel_consumption.items():
+            self.fuel_consumption[fuel_type] = 0
+    
     def simulate_burn(self, delta_time):
         # just reduce fuel levels and wet mass
         # Assumes infinite of each fuel type (for optimizing relative amounts).
@@ -75,5 +82,7 @@ class SingleStageCraft:
         self.wet_mass -= delta_time * self.mass_flow
 
     def get_average_isp(self):
+        if(self.mass_flow == 0):
+            return 0
         # Thrust in newtons divided by mass flow rate in kg/s
         return self.total_thrust / self.mass_flow
