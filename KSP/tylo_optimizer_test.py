@@ -5,25 +5,6 @@ import math
 import random
 import time
 
-planet_name = "tylo"
-altitude = 6000
-
-# Calculate initial orbital velocity
-
-mass_in_orbit = 35000
-engines = []
-
-engine_count = {
-    "Nerv": 1,
-    "Rapier": 1,
-    "Dart": 1,
-    "Dawn": 1,
-}
-min_engine_count = {
-    "Nerv": 1,
-    "Rapier": 1,
-}
-
 def simulate_landing_with_craft(craft, planet_name, altitude, logging = False):
     r = utils.bodies[planet_name]["radius"] + altitude
     ag = utils.GRAV_CONSTANT * utils.bodies[planet_name]["mass"] / (r * r)
@@ -43,6 +24,7 @@ def simulate_landing_with_craft(craft, planet_name, altitude, logging = False):
     next_engines_index = 1
 
     # Landing
+    lithobrake_speed = 60
 
     elapsed_time = 0
     iteration_count = 0
@@ -52,7 +34,7 @@ def simulate_landing_with_craft(craft, planet_name, altitude, logging = False):
 
     n_groups = len(list_of_isp)
     
-    while (vx > 0):
+    while (vx > lithobrake_speed):
         sine_pitch_angle = utils.sine_constant_altitude_thrust_angle(craft.total_thrust,
                                                            craft.wet_mass, vx,
                                                            altitude, preset=planet_name)
@@ -74,11 +56,23 @@ def simulate_landing_with_craft(craft, planet_name, altitude, logging = False):
             else:
                 craft.toggle_engines_by_isp(list_of_isp[next_engines_index])
     
-        # Update velocity
-        vx -= tick_time * thrust_effectiveness * craft.total_thrust / craft.wet_mass 
-
+        # Because this is tick-based with a pretty coarse simulation, if velocity - target is negative
+        # at the end of a tick, the optimizer thinks that more fuel was used and penalizes not reaching
+        # the target speed on exactly tick borders.
+        # This is a simple linear approximation for the last fraction of a tick.
+        
+        x_accel = thrust_effectiveness * craft.total_thrust / craft.wet_mass
+        burn_time = tick_time
+        delta_speed = tick_time * x_accel
+        target_delta_speed = vx - lithobrake_speed
+        if delta_speed > target_delta_speed:
+            burn_time = target_delta_speed / x_accel
+        
+        # Update velocity    
+        vx -= burn_time * x_accel
+        
         # Simulate burning
-        craft.simulate_burn(tick_time)
+        craft.simulate_burn(burn_time)
     
         # Print stuff
         if (logging and iteration_count % ticks_per_log == 0):
@@ -100,6 +94,7 @@ def simulate_landing_with_craft(craft, planet_name, altitude, logging = False):
     if (logging):
         print("Liftoff!")
     # Ascent
+    vx = 0
     next_engines_index -= 1
     while (vx < orbital_velocity):
         sine_pitch_angle = utils.sine_constant_altitude_thrust_angle(craft.total_thrust,
@@ -123,18 +118,25 @@ def simulate_landing_with_craft(craft, planet_name, altitude, logging = False):
             else:
                 craft.toggle_engines_by_isp(list_of_isp[next_engines_index])
     
+        x_accel = thrust_effectiveness * craft.total_thrust / craft.wet_mass
+        burn_time = tick_time
+        delta_speed = tick_time * x_accel
+        target_delta_speed = orbital_velocity - vx
+        if delta_speed > target_delta_speed:
+            burn_time = target_delta_speed / x_accel
+
         # Update velocity
-        vx += tick_time * thrust_effectiveness * craft.total_thrust / craft.wet_mass 
+        vx += burn_time * x_accel
 
         # Simulate burning
-        craft.simulate_burn(tick_time)
+        craft.simulate_burn(burn_time)
 
         # Print stuff
         if (logging and iteration_count % ticks_per_log == 0):
             pitch_in_degrees = int(math.asin(sine_pitch_angle) * 180 / math.pi)
             print(f"T={iteration_count * tick_time}: \tPitch: {pitch_in_degrees}\tVelocity: {int(vx)}")
         iteration_count += 1
-
+    craft.turn_engines_off()
     if (logging):
         print("Fuel used per type:")
     total_fuel_mass = 0
@@ -158,42 +160,77 @@ def payload_capacity(craft):
         mass -= (fuel_tank_mass)
     return mass
 
+
+planet_name = "tylo"
+altitude = 9100
+
+mass_in_orbit = 146000
+engines = []
+
+engine_count = {
+    #"Nerv": 8.0,
+    #"Wolfhound": 1.0,
+    #"Rapier": 4.0,
+    "Nerv": 7,
+    "Wolfhound": 0.5,
+    "Rapier": 4.0,
+    "Rhino": 0,
+}
+min_engine_count = {
+    "Nerv": 4.0,
+    "Rapier": 4.0,
+}
+
+
 improved_last_iteration = True
 
 best_engine_count = engine_count.copy()
-
+output_ascent_profiles = False
+allow_fractional = True
+allow_new_engines = False
 # Base case
 start_time = time.time()
 simulation_time = 0
 craft = single_stage.SingleStageCraft()
 fuel_levels = dict()
 craft.manual_instantiate(engine_count, fuel_levels, mass_in_orbit)
-simulate_landing_with_craft(craft, planet_name, altitude, logging = False)
+simulate_landing_with_craft(craft, "vall", 6000, logging = output_ascent_profiles)
+simulate_landing_with_craft(craft, planet_name, altitude, logging = output_ascent_profiles)
 max_payload_remaining = payload_capacity(craft)
 print(f"Reference payload capacity: {max_payload_remaining}")
+print(f"Reference payload fraction: {max_payload_remaining / mass_in_orbit}")
 
 # Simulated annealing.
 # Temperature controls the average magnitude of proposed changes to the engine count.
 # This will cool down over time until it's equal to one, at which point we do a
 # deterministic greedy search.
 # Hopefully this can hit a bunch of different local maxima.
-temperature = 5.0
-cooling_factor = 0.95
+temperature = 10.0
+cooling_factor = 0.99
 n_iterations = 0
-while improved_last_iteration or temperature > 1:
+anneal_threshold = 1
+if (allow_fractional):
+    temperature = 0.01
+    anneal_threshold = 0.001
+while improved_last_iteration or temperature > anneal_threshold:
     n_iterations += 1
     if (n_iterations % 20 == 0):
         print(f"Temperature: {temperature}")
-    if (temperature > 1):
+    if (temperature > anneal_threshold and not improved_last_iteration):
         temperature *= cooling_factor
-        if (temperature < 1):
-            temperature = 1
+        if (temperature < anneal_threshold):
+            temperature = anneal_threshold
     improved_last_iteration = False
     # Each iteration:
     # Pick a random number of engines to try adding or removing, and see what happens
     
     for engine, engine_info in utils.engine_info.items():
-        add_value = random.randrange(1, int(temperature) + 1)
+        if not allow_new_engines and engine not in engine_count:
+            continue
+        if allow_fractional:
+            add_value = random.random() * temperature
+        else:
+            add_value = random.randrange(1, int(temperature) + 1)
         # Try adding one or more engines
         test_engine_count = best_engine_count.copy()
         if engine in test_engine_count:
@@ -204,6 +241,7 @@ while improved_last_iteration or temperature > 1:
         test_craft = single_stage.SingleStageCraft()
         test_craft.manual_instantiate(test_engine_count, fuel_levels, mass_in_orbit)
         sim_start = time.time()
+        simulate_landing_with_craft(test_craft, "vall", 6000, logging = False)
         simulate_landing_with_craft(test_craft, planet_name, altitude, logging = False)
         sim_end = time.time()
         simulation_time += sim_end - sim_start
@@ -213,10 +251,14 @@ while improved_last_iteration or temperature > 1:
             improved_last_iteration = True
             max_payload_remaining = test_payload
             print(f"Payload capacity: {test_payload}")
+            print(f"Payload fraction: {test_payload / mass_in_orbit}")
             best_engine_count = test_engine_count
 
         # Removing an engine
-        subtract_value = random.randrange(1, int(temperature) + 1)
+        if allow_fractional:
+            subtract_value = random.random() * temperature
+        else:
+            subtract_value = random.randrange(1, int(temperature) + 1)
         test_engine_count = best_engine_count.copy()
         if engine in test_engine_count:
             min_engines = 0
@@ -232,6 +274,7 @@ while improved_last_iteration or temperature > 1:
         craft = single_stage.SingleStageCraft()
         craft.manual_instantiate(test_engine_count, fuel_levels, mass_in_orbit)
         sim_start = time.time()
+        simulate_landing_with_craft(craft, "vall", 6000, logging = False)
         simulate_landing_with_craft(craft, planet_name, altitude)
         sim_end = time.time()
         simulation_time += sim_end - sim_start
@@ -240,6 +283,7 @@ while improved_last_iteration or temperature > 1:
             print(f"Removed {subtract_value}x {engine}")
             improved_last_iteration = True
             max_payload_remaining = test_payload
+            print(f"Payload fraction: {test_payload / mass_in_orbit}")
             print(f"Payload capacity: {test_payload}")
             best_engine_count = test_engine_count
 
@@ -252,7 +296,8 @@ for a, b in best_engine_count.items():
 # Just for fun, print out ascent profile info
 craft = single_stage.SingleStageCraft()
 craft.manual_instantiate(best_engine_count, dict(), mass_in_orbit)
-simulate_landing_with_craft(craft, planet_name, altitude, logging=True)
+simulate_landing_with_craft(craft, "vall", 6000, logging=output_ascent_profiles)
+simulate_landing_with_craft(craft, planet_name, altitude, logging=output_ascent_profiles)
 
 print(f"Total time: {end_time - start_time}")
 print(f"Simulation time: {simulation_time}")
