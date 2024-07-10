@@ -4,8 +4,10 @@ class SingleStageCraft:
     def __init__(self):
         # List of engines. Map name to count
         self.engines = {}
+        # List of throttle values (0 to 1) for each engine
+        self.throttles = {}
         
-        # Track whether each engine group is on or off + fuel consumption per sec per type.
+        # Track fuel consumption per sec per type.
         # We're going to assume vacuum landings for now.
         self.engine_activations = dict()
         self.fuel_consumption = {
@@ -40,38 +42,43 @@ class SingleStageCraft:
         self.engines = _engines.copy()
         self.wet_mass = _wet_mass
         for engine in self.engines:
-            self.engine_activations[engine] = False
+            self.throttles[engine] = 0
 
     def instantiate_from_craft_file(self, craft_file_path):
         # Not implemented yet!
         print("WIP")
 
+    def set_throttle_by_name(self, name, value):
+        # Subtract current fuel consumption, thrust, and mass flow
+        engine_info = utils.engine_info[name]
+        throttle = self.throttles[name]
+        fuel_type = engine_info[1]
+        count = self.engines[name]
+        fuel_drain = engine_info[3]
+        thrust = engine_info[2]
+        self.total_thrust -= thrust * count * throttle
+        self.fuel_consumption[fuel_type] -= fuel_drain * count * throttle
+        self.mass_flow -= fuel_drain * count * throttle * utils.fuel_masses[fuel_type]
+        # Set new throttle
+        throttle = value
+        self.throttles[name] = throttle
+        self.total_thrust += thrust * count * throttle
+        self.fuel_consumption[fuel_type] += fuel_drain * count * throttle
+        self.mass_flow += fuel_drain * count * throttle * utils.fuel_masses[fuel_type]
+        
     def toggle_engines_by_isp(self, target_isp):
-        for name, count in self.engines.items():
+        for name in self.engines:
             engine_info = utils.engine_info[name]
             if engine_info[0] == target_isp:
-                engineOn = self.engine_activations[name]
-                fuel_type = engine_info[1]
-                fuel_added = engine_info[3] * count
+                engineOn = self.throttles[name] > 0
                 if not engineOn:
-                    # Turn engine on
-                    self.engine_activations[name] = True
-                    self.total_thrust += engine_info[2] * count
-                    self.fuel_consumption[fuel_type] += fuel_added
-                    self.mass_flow += fuel_added * utils.fuel_masses[fuel_type]
+                    self.set_throttle_by_name(name, 1)
                 else:
-                    # Turn engine off
-                    self.engine_activations[name] = False
-                    self.total_thrust -= engine_info[2] * count
-                    self.mass_flow -= fuel_added * utils.fuel_masses[fuel_type]
-                    self.fuel_consumption[fuel_type] -= fuel_added
+                    self.set_throttle_by_name(name, 0)
+
     def turn_engines_off(self):
-        for name, value in self.engine_activations.items():
-            self.engine_activations[name] = False
-        self.total_thrust = 0
-        self.mass_flow = 0
-        for fuel_type, value in self.fuel_consumption.items():
-            self.fuel_consumption[fuel_type] = 0
+        for name in self.engines:
+            self.set_throttle_by_name(name, 0)
     
     def simulate_burn(self, delta_time):
         # just reduce fuel levels and wet mass
