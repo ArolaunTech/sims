@@ -18,8 +18,7 @@ def simulate_landing_with_craft(craft, planet_name, altitude, logging = False):
         if count == 0:
             continue
         isp = utils.engine_info[engine][0]
-        if isp not in list_of_isp:
-            list_of_isp.append(isp)
+        list_of_isp.append((isp, engine))
     list_of_isp.sort(reverse=True)
     next_engines_index = 1
 
@@ -30,7 +29,9 @@ def simulate_landing_with_craft(craft, planet_name, altitude, logging = False):
     iteration_count = 0
     tick_time = 0.2
     ticks_per_log = 50
-    craft.toggle_engines_by_isp(list_of_isp[0])
+    throttle_resolution = 0.1 # might cause some sluggishness but I doubt it
+    # Turn on most efficient engines (always best, I think)
+    craft.set_throttle_by_name(list_of_isp[0][1], 1)
 
     n_groups = len(list_of_isp)
     
@@ -40,21 +41,27 @@ def simulate_landing_with_craft(craft, planet_name, altitude, logging = False):
                                                            altitude, preset=planet_name)
         thrust_effectiveness = math.sqrt(1 - sine_pitch_angle * sine_pitch_angle)
         current_effective_isp = craft.get_average_isp() * thrust_effectiveness
-        # Check if it's more efficient to turn on some engines
+        # Check if it's more efficient to increase throttle of the next engine
         if next_engines_index < n_groups:
-            craft.toggle_engines_by_isp(list_of_isp[next_engines_index])
+            engine_name = list_of_isp[next_engines_index][1]
+            isp = list_of_isp[next_engines_index][0]
+            current_throttle = craft.throttles[engine_name]
+            new_throttle = min(1, current_throttle + throttle_resolution)
+            craft.set_throttle_by_name(engine_name, new_throttle)
             sine_test_angle = utils.sine_constant_altitude_thrust_angle(craft.total_thrust,
                                                                     craft.wet_mass, vx,
                                                                     altitude, preset=planet_name)
             test_effective_isp = craft.get_average_isp() * math.sqrt(1 - sine_test_angle * sine_test_angle)
             if test_effective_isp > current_effective_isp:
                 sine_pitch_angle = sine_test_angle
+                thrust_effectiveness = math.sqrt(1 - sine_pitch_angle * sine_pitch_angle)
                 if (logging):
-                    print(f"Turning on engines with Isp {list_of_isp[next_engines_index]}")
-                next_engines_index += 1
+                    print(f"Setting {engine_name} throttle to {new_throttle}")
+                if (new_throttle >= 1):
+                    next_engines_index += 1
             
             else:
-                craft.toggle_engines_by_isp(list_of_isp[next_engines_index])
+                craft.set_throttle_by_name(engine_name, current_throttle)
     
         # Because this is tick-based with a pretty coarse simulation, if velocity - target is negative
         # at the end of a tick, the optimizer thinks that more fuel was used and penalizes not reaching
@@ -98,26 +105,32 @@ def simulate_landing_with_craft(craft, planet_name, altitude, logging = False):
     next_engines_index -= 1
     while (vx < orbital_velocity):
         sine_pitch_angle = utils.sine_constant_altitude_thrust_angle(craft.total_thrust,
-                                                           craft.wet_mass, vx,
-                                                           altitude, preset=planet_name)
+                                                                     craft.wet_mass, vx,
+                                                                     altitude, preset=planet_name)
         thrust_effectiveness = math.sqrt(1 - sine_pitch_angle * sine_pitch_angle)
         current_effective_isp = craft.get_average_isp() * thrust_effectiveness
-        # Check if it's more efficient to turn off some engines
+        # Check if it's more efficient to decrease throttle of the next engine
         if next_engines_index > 0:
-            craft.toggle_engines_by_isp(list_of_isp[next_engines_index])
+            engine_name = list_of_isp[next_engines_index][1]
+            isp = list_of_isp[next_engines_index][0]
+            current_throttle = craft.throttles[engine_name]
+            new_throttle = max(0, current_throttle - throttle_resolution)
+            craft.set_throttle_by_name(engine_name, new_throttle)
             sine_test_angle = utils.sine_constant_altitude_thrust_angle(craft.total_thrust,
                                                                     craft.wet_mass, vx,
                                                                     altitude, preset=planet_name)
             test_effective_isp = craft.get_average_isp() * math.sqrt(1 - sine_test_angle * sine_test_angle)
             if test_effective_isp > current_effective_isp:
                 sine_pitch_angle = sine_test_angle
+                thrust_effectiveness = math.sqrt(1 - sine_pitch_angle * sine_pitch_angle)
                 if (logging):
-                    print(f"Turning off engines with Isp {list_of_isp[next_engines_index]}")
-                next_engines_index -= 1
+                    print(f"Setting {engine_name} throttle to {new_throttle}")
+                if (new_throttle <= 0):
+                    next_engines_index -= 1
             
             else:
-                craft.toggle_engines_by_isp(list_of_isp[next_engines_index])
-    
+                craft.set_throttle_by_name(engine_name, current_throttle)
+            
         x_accel = thrust_effectiveness * craft.total_thrust / craft.wet_mass
         burn_time = tick_time
         delta_speed = tick_time * x_accel
@@ -164,37 +177,40 @@ def payload_capacity(craft):
 planet_name = "tylo"
 altitude = 9100
 
-mass_in_orbit = 146000
+mass_in_orbit = 24039
 engines = []
 
 engine_count = {
     #"Nerv": 8.0,
     #"Wolfhound": 1.0,
     #"Rapier": 4.0,
-    "Nerv": 7,
-    "Wolfhound": 0.5,
-    "Rapier": 4.0,
-    "Rhino": 0,
+    "Rapier": 1,
+    "Nerv": 1,
+    "Dawn": 1,
+    #"Rhino": 0.23,
+    #"Mammoth": 0,
 }
 min_engine_count = {
-    "Nerv": 4.0,
-    "Rapier": 4.0,
+    "Nerv": 1,
+    "Rapier": 1,
+    "Dawn": 1,
 }
 
 
 improved_last_iteration = True
 
 best_engine_count = engine_count.copy()
-output_ascent_profiles = False
+output_ascent_profiles = True
 allow_fractional = True
 allow_new_engines = False
+
 # Base case
 start_time = time.time()
 simulation_time = 0
 craft = single_stage.SingleStageCraft()
 fuel_levels = dict()
 craft.manual_instantiate(engine_count, fuel_levels, mass_in_orbit)
-simulate_landing_with_craft(craft, "vall", 6000, logging = output_ascent_profiles)
+#simulate_landing_with_craft(craft, "vall", 6000, logging = output_ascent_profiles)
 simulate_landing_with_craft(craft, planet_name, altitude, logging = output_ascent_profiles)
 max_payload_remaining = payload_capacity(craft)
 print(f"Reference payload capacity: {max_payload_remaining}")
@@ -241,7 +257,7 @@ while improved_last_iteration or temperature > anneal_threshold:
         test_craft = single_stage.SingleStageCraft()
         test_craft.manual_instantiate(test_engine_count, fuel_levels, mass_in_orbit)
         sim_start = time.time()
-        simulate_landing_with_craft(test_craft, "vall", 6000, logging = False)
+        #simulate_landing_with_craft(test_craft, "vall", 6000, logging = False)
         simulate_landing_with_craft(test_craft, planet_name, altitude, logging = False)
         sim_end = time.time()
         simulation_time += sim_end - sim_start
@@ -274,7 +290,7 @@ while improved_last_iteration or temperature > anneal_threshold:
         craft = single_stage.SingleStageCraft()
         craft.manual_instantiate(test_engine_count, fuel_levels, mass_in_orbit)
         sim_start = time.time()
-        simulate_landing_with_craft(craft, "vall", 6000, logging = False)
+        #simulate_landing_with_craft(craft, "vall", 6000, logging = False)
         simulate_landing_with_craft(craft, planet_name, altitude)
         sim_end = time.time()
         simulation_time += sim_end - sim_start
@@ -283,8 +299,8 @@ while improved_last_iteration or temperature > anneal_threshold:
             print(f"Removed {subtract_value}x {engine}")
             improved_last_iteration = True
             max_payload_remaining = test_payload
-            print(f"Payload fraction: {test_payload / mass_in_orbit}")
             print(f"Payload capacity: {test_payload}")
+            print(f"Payload fraction: {test_payload / mass_in_orbit}")
             best_engine_count = test_engine_count
 
 end_time = time.time()
@@ -296,7 +312,7 @@ for a, b in best_engine_count.items():
 # Just for fun, print out ascent profile info
 craft = single_stage.SingleStageCraft()
 craft.manual_instantiate(best_engine_count, dict(), mass_in_orbit)
-simulate_landing_with_craft(craft, "vall", 6000, logging=output_ascent_profiles)
+#simulate_landing_with_craft(craft, "vall", 6000, logging=output_ascent_profiles)
 simulate_landing_with_craft(craft, planet_name, altitude, logging=output_ascent_profiles)
 
 print(f"Total time: {end_time - start_time}")
