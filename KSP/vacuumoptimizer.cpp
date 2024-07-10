@@ -7,6 +7,8 @@
 const double pi = 3.14159;
 const double g = 9.81;
 
+const double fuelTankMult[4] = {1.1, 1.125, 4.0/3.0, 17.0/15.0};
+
 //Planetary constants
 const double radius = 6.0e+5;
 const double gravity = 0.8;
@@ -52,7 +54,25 @@ std::uniform_real_distribution<double> uniform(0.0, 1.0);
 std::normal_distribution<double> normal(0.0, 1.0);
 
 //Simulation
-simulationResult simulateLandingAscent(double initialMass, std::vector<engine> engineList, std::vector<int> engineNum, std::vector<std::vector<double> > code) {
+double calculateEffectiveIsp(double mass, std::vector<engine> engineList, std::vector<int> engineNum, std::vector<double> throttles, double velocity) {
+	double orbFrac = velocity/landingOrbitalVelocity;
+	double effectiveGrav = landingGravity * (1.0 - orbFrac * orbFrac);
+	double weight = mass * effectiveGrav;
+	double thrust = 0.0;
+	double fuelConsumption = 0.0;
+	int numEngines = engineNum.size();
+
+	for (int i = 0; i < numEngines; i++) {
+		thrust += engineList[i].thrust * (double)engineNum[i] * throttles[i];
+		fuelConsumption += engineList[i].fuelConsumption * fuelTankMult[engineList[i].fueltype] * (double)engineNum[i] * throttles[i];
+	}
+	if (thrust < weight) {
+		return 0.0;
+	}
+	return std::sqrt(thrust * thrust - weight * weight)/(fuelConsumption * g);
+}
+
+simulationResult simulateLandingAscent(double initialMass, std::vector<engine> engineList, std::vector<int> engineNum) {
 	double fuelUsed[4] = {0.0};
 
 	int bestEngineFuelType;
@@ -91,28 +111,87 @@ simulationResult simulateLandingAscent(double initialMass, std::vector<engine> e
 	double acceleration;
 	double engineGroupFuel;
 
-	double nextSegmentTime = code[0][0];
-	int nextCodeSegment = 0;
-	std::vector<double> currCodeSegment(code[0].size(), 0.0);
-
 	double numEnginesFiring;
 
 	bool valid = true;
 
+	std::vector<double> throttles;
+	for (int i = 0; i < numEngines; i++) {
+		throttles.push_back(1.0);
+	}
+	double effectiveIsp;
+	double oldThrottle;
+	double neweffectiveIsp;
+
+	double thrustWE;
+	double fuelWE;
+	double ispWithoutEngine;
+	double weight;
+	double wantedThrust;
+
 	while (currVel > rotationalVelocity) {
-		//Read code
-		if (time >= nextSegmentTime) {
-			if (nextCodeSegment < code.size()) {
-				currCodeSegment = code[nextCodeSegment];
-				nextCodeSegment += 1;
-				nextSegmentTime += currCodeSegment[0];
+		//Optimize throttles
+		orbitalFraction = currVel/landingOrbitalVelocity;
+		for (int i = 0; i < 2; i++) {
+			effectiveIsp = calculateEffectiveIsp(currMass, engineList, engineNum, throttles, currVel);
+			for (int j = 0; j < numEngines; j++) {
+				oldThrottle = throttles[j];
+
+				thrustWE = 0.0;
+				fuelWE = 0.0;
+				for (int k = 0; k < numEngines; k++) {
+					if (j == k) {
+						continue;
+					}
+					thrustWE += engineList[k].thrust * (double)engineNum[k] * throttles[k];
+					fuelWE += engineList[k].thrust * (double)engineNum[k] * throttles[k] * fuelTankMult[engineList[k].fueltype]/(engineList[k].isp * g);
+				}
+
+				if (thrustWE == 0.0) {
+					continue;
+				}
+
+				weight = currMass * landingGravity * (1.0 - orbitalFraction * orbitalFraction);
+
+				ispWithoutEngine = thrustWE/(fuelWE * g);
+				double newIsp = engineList[j].isp;
+
+				wantedThrust = (thrustWE * thrustWE)/newIsp - (weight*weight)/newIsp - (thrustWE*thrustWE)/ispWithoutEngine;
+				wantedThrust /= thrustWE/ispWithoutEngine - thrustWE/newIsp;
+				wantedThrust /= engineList[j].thrust * (double)engineNum[j];
+
+				if (wantedThrust < 0.0) {
+					wantedThrust = 0.0;
+				}
+				if (wantedThrust > 1.0) {
+					wantedThrust = 1.0;
+				}
+
+				throttles[j] = wantedThrust;
+				//if (throttles[j] < 0.0) {
+				//	throttles[j] = 0.0;
+				//}
+				//if (throttles[j] > 1.0) {
+				//	throttles[j] = 1.0;
+				//}
+
+				neweffectiveIsp = calculateEffectiveIsp(currMass, engineList, engineNum, throttles, currVel);
+				if (neweffectiveIsp < effectiveIsp) {
+					throttles[j] = oldThrottle;
+				} else {
+					effectiveIsp = neweffectiveIsp;
+				}
 			}
 		}
+		//for (int i = 0; i < numEngines; i++) {
+		//	std::cout << throttles[i] << " " << engineNum[i] << "\n";
+		//}
+		//std::cout << effectiveIsp << "\n";
 
 		//Calculate thrust and fuel consumption
 		thrust = 0.0;
 		for (int i = 0; i < numEngines; i++) {
-			numEnginesFiring = currCodeSegment[i + 1] * (double)engineNum[i];
+			numEnginesFiring = throttles[i] * (double)engineNum[i];
 
 			thrust += engineList[i].thrust * numEnginesFiring; //Thrust of each engine times number of engines
 			engineGroupFuel = engineList[i].fuelConsumption * numEnginesFiring;
@@ -121,9 +200,10 @@ simulationResult simulateLandingAscent(double initialMass, std::vector<engine> e
 			currMass -= engineGroupFuel * timestep;
 		}
 
+		//std::cout << thrust << "\n";
+
 		//Calculate acceleration
 		acceleration = thrust/currMass;
-		orbitalFraction = currVel/landingOrbitalVelocity;
 		verticalAcceleration = landingGravity * (orbitalFraction*orbitalFraction - 1.0);
 
 		if (acceleration < std::fabs(verticalAcceleration)) { //Not enough thrust to stay at a constant altitude
@@ -143,19 +223,64 @@ simulationResult simulateLandingAscent(double initialMass, std::vector<engine> e
 
 	currVel = rotationalVelocity;
 	while (valid && (currVel < landingTarget)) {
-		//Read code
-		if (time >= nextSegmentTime) {
-			if (nextCodeSegment < code.size()) {
-				currCodeSegment = code[nextCodeSegment];
-				nextCodeSegment += 1;
-				nextSegmentTime += currCodeSegment[0];
+		//Optimize throttles
+		orbitalFraction = currVel/landingOrbitalVelocity;
+		for (int i = 0; i < 2; i++) {
+			effectiveIsp = calculateEffectiveIsp(currMass, engineList, engineNum, throttles, currVel);
+			for (int j = 0; j < numEngines; j++) {
+				oldThrottle = throttles[j];
+
+				thrustWE = 0.0;
+				fuelWE = 0.0;
+				for (int k = 0; k < numEngines; k++) {
+					if (j == k) {
+						continue;
+					}
+					thrustWE += engineList[k].thrust * (double)engineNum[k] * throttles[k];
+					fuelWE += engineList[k].thrust * (double)engineNum[k] * throttles[k] * fuelTankMult[engineList[k].fueltype]/(engineList[k].isp * g);
+				}
+
+				if (thrustWE == 0.0) {
+					continue;
+				}
+
+				weight = currMass * landingGravity * (1.0 - orbitalFraction * orbitalFraction);
+
+				ispWithoutEngine = thrustWE/(fuelWE * g);
+				double newIsp = engineList[j].isp;
+
+				wantedThrust = (thrustWE * thrustWE)/newIsp - (weight*weight)/newIsp - (thrustWE*thrustWE)/ispWithoutEngine;
+				wantedThrust /= thrustWE/ispWithoutEngine - thrustWE/newIsp;
+				wantedThrust /= engineList[j].thrust * (double)engineNum[j];
+
+				if (wantedThrust < 0.0) {
+					wantedThrust = 0.0;
+				}
+				if (wantedThrust > 1.0) {
+					wantedThrust = 1.0;
+				}
+
+				throttles[j] = wantedThrust;
+				//if (throttles[j] < 0.0) {
+				//	throttles[j] = 0.0;
+				//}
+				//if (throttles[j] > 1.0) {
+				//	throttles[j] = 1.0;
+				//}
+
+				neweffectiveIsp = calculateEffectiveIsp(currMass, engineList, engineNum, throttles, currVel);
+				if (neweffectiveIsp < effectiveIsp) {
+					throttles[j] = oldThrottle;
+				} else {
+					effectiveIsp = neweffectiveIsp;
+				}
 			}
 		}
 
 		//Calculate thrust and fuel consumption
 		thrust = 0.0;
 		for (int i = 0; i < numEngines; i++) {
-			numEnginesFiring = currCodeSegment[i + 1] * (double)engineNum[i];
+			numEnginesFiring = throttles[i] * (double)engineNum[i];
 
 			thrust += engineList[i].thrust * numEnginesFiring; //Thrust of each engine times number of engines
 			engineGroupFuel = engineList[i].fuelConsumption * numEnginesFiring;
@@ -166,7 +291,6 @@ simulationResult simulateLandingAscent(double initialMass, std::vector<engine> e
 
 		//Calculate acceleration
 		acceleration = thrust/currMass;
-		orbitalFraction = currVel/landingOrbitalVelocity;
 		verticalAcceleration = landingGravity * (orbitalFraction*orbitalFraction - 1.0);
 
 		if (acceleration < std::fabs(verticalAcceleration)) { //Not enough thrust to stay at a constant altitude
@@ -216,14 +340,10 @@ simulationResult optimizeLanding(double initialMass, std::vector<engine> engineL
 	simulationResult newResult;
 
 	std::vector<int> randomEngineNum;
-	std::vector<std::vector<double> > randomCode;
 	std::vector<int> bestRandomEngineNum;
-	std::vector<std::vector<double> > bestRandomCode;
 
 	std::vector<int> oldEngineNum;
-	std::vector<std::vector<double> > oldCode;
 	std::vector<int> newEngineNum;
-	std::vector<std::vector<double> > newCode;
 
 	std::vector<double> key;
 	int nKeys;
@@ -234,11 +354,11 @@ simulationResult optimizeLanding(double initialMass, std::vector<engine> engineL
 	for (int run = 0; run < 10; run++) {
 		//Generate random runs
 		bestRandomResult.finalMass = -1.0;
-		for (int randRun = 0; randRun < 1000; randRun++) {
+		for (int randRun = 0; randRun < 20000; randRun++) {
 			randomEngineNum.clear();
 			for (int i = 0; i < numEngines; i++) {
 				newAppendingNumEngines = (int)(uniform(generator) * 50.0);
-				if (uniform(generator) < 0.5) {
+				if (uniform(generator) < 0.8) {
 					newAppendingNumEngines = minEngineCounts[i];
 				}
 				if (newAppendingNumEngines < minEngineCounts[i]) {
@@ -247,19 +367,8 @@ simulationResult optimizeLanding(double initialMass, std::vector<engine> engineL
 				randomEngineNum.push_back(newAppendingNumEngines);
 			}
 
-			randomCode.clear();
-			nKeys = 1 + (int)(uniform(generator)*3.0);
-			for (int i = 0; i < nKeys; i++) {
-				key.clear();
-				key.push_back(uniform(generator) * 300.0);
-				for (int j = 0; j < numEngines; j++) {
-					key.push_back(1.0);
-				}
-				randomCode.push_back(key);
-			}
-			randomCode[0][0] = 0.0;
-
-			randomResult = simulateLandingAscent(initialMass, engineList, randomEngineNum, randomCode);
+			randomResult = simulateLandingAscent(initialMass, engineList, randomEngineNum);
+			//std::cout << randomResult.finalMass << "\n";
 			if (randomResult.finalMass < 0) {
 				continue;
 			}
@@ -276,17 +385,8 @@ simulationResult optimizeLanding(double initialMass, std::vector<engine> engineL
 					std::cout << randomEngineNum[i] << ", ";
 				}
 				std::cout << "\n" <<
-				             "  }\n" <<
-				             "  - Code: {\n";
-				for (int i = 0; i < nKeys; i++) {
-					std::cout << "    {T:" << randomCode[i][0] << "s, ";
-					for (int j = 1; j <= numEngines; j++) {
-						std::cout << randomCode[i][j] << ", ";
-					}
-					std::cout << "}\n";
-				}
-				std::cout << "  }\n" <<
-				             "  - Fuel types used:\n" <<
+				             "  }\n";
+				std::cout << "  - Fuel types used:\n" <<
 				             "     - LF: " << randomResult.fuelUsed[0] << "kg\n" <<
 				             "     - LFOX: " << randomResult.fuelUsed[1] << "kg\n" <<
 				             "     - XE: " << randomResult.fuelUsed[2] << "kg\n" <<
@@ -294,7 +394,6 @@ simulationResult optimizeLanding(double initialMass, std::vector<engine> engineL
 			}
 
 			bestRandomResult = randomResult;
-			bestRandomCode = randomCode;
 			bestRandomEngineNum = randomEngineNum;
 			//std::cout << randomResult.finalMass/initialMass << "\n";
 		}
@@ -307,12 +406,10 @@ simulationResult optimizeLanding(double initialMass, std::vector<engine> engineL
 		}
 
 		oldEngineNum = bestRandomEngineNum;
-		oldCode = bestRandomCode;
 		oldResult = bestRandomResult;
 		//Optimize random runs to make them better
-		for (int step = 0; step < 10000; step++) {
+		for (int step = 0; step < 20000; step++) {
 			newEngineNum = oldEngineNum;
-			newCode = oldCode;
 
 			for (int i = 0; i < numEngines; i++) {
 				newEngineNum[i] += (int)(5.0*normal(generator));
@@ -320,28 +417,13 @@ simulationResult optimizeLanding(double initialMass, std::vector<engine> engineL
 					newEngineNum[i] = minEngineCounts[i];
 				}
 			}
-			for (int i = 0; i < oldCode.size(); i++) {
-				newCode[i][0] += 50.0*normal(generator);
-				if (newCode[i][0] < 0.0) {
-					newCode[i][0] = 0.0;
-				}
-				for (int j = 1; j <= numEngines; j++) {
-					newCode[i][j] += 0.1*normal(generator);
-					if (newCode[i][j] < 0.0) {
-						newCode[i][j] = 0.0;
-					}
-					if (newCode[i][j] > 1.0) {
-						newCode[i][j] = 1.0;
-					}
-				}
-			}
-			newCode[0][0] = 0.0;
 
-			newResult = simulateLandingAscent(initialMass, engineList, newEngineNum, newCode);
+			newResult = simulateLandingAscent(initialMass, engineList, newEngineNum);
 			if ((newResult.finalMass > oldResult.finalMass) || (uniform(generator) < 0.25 - (double)step/10000.0)) {
-				oldCode = newCode;
 				oldResult = newResult;
 				oldEngineNum = newEngineNum;
+
+				//std::cout << newResult.finalMass;
 
 				if (newResult.finalMass > bestResult.finalMass) {
 					std::cout << "Found good result:\n" <<
@@ -353,20 +435,11 @@ simulationResult optimizeLanding(double initialMass, std::vector<engine> engineL
 					}
 					std::cout << "\n" <<
 					             "  }\n" <<
-					             "  - Code: {\n";
-					for (int i = 0; i < newCode.size(); i++) {
-						std::cout << "    {T:" << newCode[i][0] << "s, ";
-						for (int j = 1; j <= numEngines; j++) {
-							std::cout << newCode[i][j] << ", ";
-						}
-						std::cout << "}\n";
-					}
-					std::cout << "  }\n" <<
-				             "  - Fuel types used:\n" <<
-				             "     - LF: " << newResult.fuelUsed[0] << "kg\n" <<
-				             "     - LFOX: " << newResult.fuelUsed[1] << "kg\n" <<
-				             "     - XE: " << newResult.fuelUsed[2] << "kg\n" <<
-				             "     - MP: " << newResult.fuelUsed[3] << "kg\n\n";
+				                 "  - Fuel types used:\n" <<
+				                 "     - LF: " << newResult.fuelUsed[0] << "kg\n" <<
+				                 "     - LFOX: " << newResult.fuelUsed[1] << "kg\n" <<
+				                 "     - XE: " << newResult.fuelUsed[2] << "kg\n" <<
+				                 "     - MP: " << newResult.fuelUsed[3] << "kg\n\n";
 				}
 				//std::cout << newResult.finalMass << "\n";
 			}
@@ -380,7 +453,7 @@ simulationResult optimizeLanding(double initialMass, std::vector<engine> engineL
 }
 
 int main() {
-	const double initialMass = 466650;
+	const double initialMass = 1000000.0;
 	//engine nerva = {800.0, 0, 60000.0, 3000.0};
 	//std::cout << engine{800.0, 0, 60000.0, 3000.0}.fuelConsumption << "\n";
 
@@ -389,11 +462,11 @@ int main() {
 
 	simulationResult optimizerResult = optimizeLanding(
 		initialMass, 
-		std::vector<engine> { //Put the allowed engines here, currently NERV, RAPIER, Wolfhound, Dart, Dawn
+		std::vector<engine> { //Put the allowed engines here, currently NERV, RAPIER, Wolfhound, Rhino, Dart, Dawn
 			engine{800.0, 0, 60000.0, 3000.0}, 
 			engine{305.0, 1, 180000.0, 2000.0}, 
 			engine{380.0, 1, 375000.0, 3300.0},
-			engine{340.0, 1, 180000.0, 1000.0},
+			engine{340.0, 1, 180.0e+3, 1.0e+3},
 			engine{4200.0, 2, 2000.0, 250.0}
 		},
 		std::vector<int> { //Minimum engine counts

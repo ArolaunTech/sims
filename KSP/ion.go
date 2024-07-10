@@ -764,7 +764,7 @@ func main() {
 	numPanels := 9.0
 	numBigPanels := 0.0
 	batteryCapacity := 100.0
-	startingMass := 6.47
+	startingMass := 6.2
 	fcArrays := 0.0
 
 	fmt.Printf("Starting Mass: %ft\n\n", startingMass)
