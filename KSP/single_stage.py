@@ -1,4 +1,6 @@
-import utils
+from utils import *
+import utils #Eh
+import math
 
 class SingleStageCraft:
     def __init__(self):
@@ -93,3 +95,25 @@ class SingleStageCraft:
             return 0
         # Thrust in newtons divided by mass flow rate in kg/s
         return self.total_thrust / self.mass_flow
+
+    def use_dv(self, dv):
+        # Decreases fuel levels by minimum possible to use given dV
+        # Useful for simulating orbital transfers
+        best_isp = 0
+        best_fuel = ""
+        for engine in self.engines:
+            engine_info = utils.engine_info[engine]
+            engine_isp = engine_info[0]
+            engine_fueltype = engine_info[1]
+
+            if engine_isp > best_isp:
+                best_isp = engine_isp
+                best_fuel = engine_fueltype
+
+        fuel_ratio = math.exp(-dv/(best_isp * 9.81))
+        new_mass = self.wet_mass * fuel_ratio
+
+        #print(self.wet_mass, new_mass, (self.wet_mass - new_mass)/fuel_masses[best_fuel], self.fuel_consumption)
+
+        self.fuel_used[best_fuel] += (self.wet_mass - new_mass)/fuel_masses[best_fuel]
+        self.wet_mass = new_mass
