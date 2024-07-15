@@ -26,8 +26,8 @@ fuel_masses = {
 fuel_tank_info = {
     "LiquidFuel": (50, 10.0),
     "LFOx": (40, 8.0),
-    "Monopropellant": (120, 6.0),
-    "XenonGas": (720, 3.1667),
+    "Monopropellant": (120, 7.5), #Btw the FL-R750 tank has a better monoprop fraction
+    "XenonGas": (720, 3),
     "SolidFuel": (0, 2), # idc about solid fuel. Doesn't make sense to use this line anyway
 }
 
