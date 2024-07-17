@@ -33,9 +33,10 @@ A lot of these programs are unfinished and never will be completed.
  - ```j5ssto.py```: Optimizes Jool-5 SSTO route for maximum fractional payload.
  - ```planesim.cpp```: Optimizes RAPIER-based ascent profiles to reach a given suborbital trajectory using minimal fuel. One of my first C++ programs so may contain bad practices.
  - ```shift_assist.py```: Part of a multiple gravity assist planner.
- - ```single_stage.py```: Optimizes when to use different engines for the most efficient landing/ascent on non-atmospheric bodies.
+ - ```single_stage.py```: A class that represents a single stage craft.
+ - ```single_stage_simulation.py```: Optimizes single stage craft landings in vacuum for maximum payload fraction.
  - ```tylo_landing.py```: Optimizes Tylo landers for minimum mass.
- - ```tylo_optimizer_test.py```: An example of how to use ```single_stage.py``` to optimize a Tylo lander.
+ - ```tylo_optimizer_test.py```: An example of how to use ```single_stage_simulation.py``` to optimize a Tylo lander.
  - ```utils.py```: A utils library for ```single_stage.py```.
  - ```vacuumoptimizer.cpp```: Optimizes single-stage vacuum landers for maximum fractional payload by changing engine count and throttle.
 
