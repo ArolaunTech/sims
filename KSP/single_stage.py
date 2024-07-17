@@ -94,6 +94,7 @@ class SingleStageCraft:
         if(self.mass_flow == 0):
             return 0
         # Thrust in newtons divided by mass flow rate in kg/s
+        # Technically this is "effective exhaust velocity" but whatever
         return self.total_thrust / self.mass_flow
 
     def use_dv(self, dv):
