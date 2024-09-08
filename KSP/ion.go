@@ -12,11 +12,11 @@ const kerbinStdgp float64 = g * kerbinRadius * kerbinRadius
 const kerbinRotp float64 = 21549.425
 const kerbinAtmoAlt float64 = 7.0e+4
 
-const maxKerbinCircAlt float64 = 2.0e+5
-const minKerbinCircAlt float64 = 6.0e+4
+const maxKerbinCircAlt float64 = 9.0e+6
+const minKerbinCircAlt float64 = 7.0e+4
 
-const spaceKerbinAlt float64 = 7.2e+4
-const highKerbinAlt float64 = 1.85e+4
+const spaceKerbinAlt float64 = 7.0e+4
+const highKerbinAlt float64 = 1.8e+4
 
 const mohoRadius float64 = 2.5e+5
 const mohoStdgp float64 = 0.275 * g * mohoRadius * mohoRadius
@@ -30,6 +30,12 @@ var mohoGAccel float64 = mohoStdgp/math.Pow(mohoRadius + mohoLandAlt, 2.0)
 var mohoLandOrbVel float64 = math.Sqrt(mohoStdgp/(mohoRadius + mohoLandAlt))
 
 const ionEC float64 = 600.0/(7.0 * g)
+const ionXe float64 = 1.0/(2100.0 * g)
+
+const rapierIspClosedCycle float64 = 305.0
+const rapierClosedCycleThrust float64 = 180.0
+const rapierMaxVel float64 = 1680.0
+const rapierMass float64 = 2
 
 func calcSingleEngineMax(ec float64) (float64, float64, float64) {
 	//Returns single ion engine thrust (kN), total EC consumption (u/s), and xenon consumption (tons/s).
@@ -56,13 +62,10 @@ func calcIonStarvation(ionThrust float64, throttle float64, currEC float64, sola
 	// - EC Consumption (float64, u/s)
 	// - Xenon Consumption (float64, tons/s)
 
-	if throttle < 1.0 {
-		t, ec, xe := calcIonStarvation(ionThrust, 1, currEC, solar/throttle)
-		return t * throttle, ec * throttle, xe * throttle
-	}
+	numEngines := ionThrust/2.0
 
-	demandXe := ionThrust/(4200.0 * g)
-	demandEC := ionEC * ionThrust/2.0
+	demandXe := ionThrust * throttle/(4200.0 * g)
+	demandEC := ionEC * numEngines * throttle
 
 	if (currEC > 0) || (solar >= demandEC) { //No ion starvation
 		return ionThrust*throttle, demandEC, demandXe
@@ -72,29 +75,23 @@ func calcIonStarvation(ionThrust float64, throttle float64, currEC float64, sola
 	}
 
 	//Here it is guaranteed that the ion engines are not getting enough EC to run
-	maxSU := math.Min(solar, demandEC - ionEC)
-	minSU := math.Max(0, solar - ionEC)
-
-	lU := solar - maxSU
-	uU := solar - minSU
-
-	zU := 0.1 * ionEC
-	if uU < zU {
-		zU = uU
+	desiredStarve := 0.1 * ionEC * throttle
+	if solar <= desiredStarve {
+		return 1.1 * solar * throttle/desiredStarve, solar, ionXe * throttle * solar/desiredStarve
 	}
-	if lU > zU {
-		zU = lU
+	desiredFull := demandEC - ionEC * throttle
+	desiredFullThrust := desiredFull * 2.0/ionEC
+	desiredFullXe := desiredFullThrust/(4200.0 * g)
+
+	if solar >= desiredFull {
+		lastThrust, _, lastXe := calcSingleEngineMax((solar - desiredFull)/throttle)
+		return desiredFullThrust + lastThrust*throttle, solar, desiredFullXe + lastXe*throttle
 	}
-
-	zT, _, zZ := calcSingleEngineMax(zU)
-	bestT := 2.0 * (solar - zU)/ionEC + zT
-	bestXe:= 2.0 * (solar - zU)/(ionEC * 4200.0 * g) + zZ
-
-	return bestT, solar, bestXe
+	return 1.1*throttle + 2.0*(solar-desiredStarve)/ionEC, solar, ionXe*(throttle+(solar-desiredStarve)/ionEC)
 }
 
 func neededLF(mass float64) float64 {
-	lf := mass * 0.08
+	lf := mass * 0.065
 	if lf > 0.5 {
 		return 0.5 + math.Ceil((lf - 0.5) * 40) * 0.025
 	}
@@ -105,6 +102,9 @@ func minXeCapacity(xenon float64) float64 {
 	if xenon <= 0.0 {
 		return 0.0
 	}
+	//if xenon >= 0.642 {
+	//	return 0.642 + minXeCapacity(xenon - 0.642)
+	//}
 	out := 0.0405 + minXeCapacity(xenon - 0.0405)
 	out = math.Min(out, 0.072 + minXeCapacity(xenon - 0.072))
 	out = math.Min(out, 0.57 + minXeCapacity(xenon - 0.57))
@@ -123,18 +123,20 @@ func minLFOXCapacity(lfox float64) float64 {
 	return out
 }
 
-func simulateMohoLandingAscent(mass float64, code []float64, battery float64, solar float64, ionThrust float64, chemThrust float64) (float64, float64, float64, float64) {
+func simulateMohoLandingAscent(mass float64, battery float64, solar float64, ionThrust float64, chemThrust float64) (float64, float64, float64, float64) {
 	//Returns mass, punishMass, xenon, LFOX
-	nextCodeIndex := 0
-	currCodeIonThrust := 0.0
+	//nextCodeIndex := 0
+	currCodeIonThrust := 1.0
 	currCodeChemThrust := 0.0
-	currCodeTime := 0.0
+	//currCodeTime := 0.0
 	currMass := mass
 	currEC := battery
 	totalLFOXUsed := 0.0
 	totalXenonUsed := 0.0
 
-	var ionPush, ionXeConsump, ionECConsump float64
+	maxChemLFOXConsumption := chemThrust/(rapierIspClosedCycle * g)
+
+	//var ionPush, ionXeConsump, ionECConsump float64
 	var chemPush, chemLFOXConsump, totalPush float64
 
 	var accel, vaccel, haccel float64
@@ -143,34 +145,39 @@ func simulateMohoLandingAscent(mass float64, code []float64, battery float64, so
 	currVel := lowMaxSpeed
 
 	ascentValid := false
-	codeTime := 0.0
+	//codeTime := 0.0
 
 	timestep := 0.5
 	for time := 0.0; time < 3000.0; time += timestep {
-		//fmt.Print(time, "\n")
-		//Read code
-		if nextCodeIndex < len(code) {
-			if time >= currCodeTime + code[nextCodeIndex] {
-				currCodeTime += code[nextCodeIndex]
-				currCodeIonThrust = code[nextCodeIndex + 1]
-				currCodeChemThrust = code[nextCodeIndex + 2]
-				nextCodeIndex += 3
-			}
+		if math.Mod(time, 1.0) == 0.0 {
+			fmt.Printf("T = %fs: Velocity of %f m/s, Currently %fkg, XE Used: %fkg, LF+OX Used: %fkg\n", time, currVel, 1000.0*currMass, 1000.0*totalXenonUsed, 1000.0*totalLFOXUsed)
 		}
+		//Read code
+		//if nextCodeIndex < len(code) {
+		//	if time >= currCodeTime + code[nextCodeIndex] {
+		//		currCodeTime += code[nextCodeIndex]
+		//		currCodeChemThrust = code[nextCodeIndex + 2]
+		//		nextCodeIndex += 3
+		//	}
+		//}
 
 		//Calculate thrust
+		vaccel = mohoGAccel * math.Abs(1.0 - math.Pow(currVel/mohoLandOrbVel,2.0))
+
 		ionPush, iEC, ionXeConsump := calcIonStarvation(ionThrust, currCodeIonThrust, currEC, solar)
 		netEC := solar - iEC
 
+		currCodeChemThrust = (1.125 * maxChemLFOXConsumption * ionPush * ionPush - 1.125 * maxChemLFOXConsumption * currMass * currMass * vaccel * vaccel - 4.0/3.0 * ionXeConsump * ionPush * chemThrust)/(4.0/3.0 * ionXeConsump * chemThrust * chemThrust - 1.125 * maxChemLFOXConsumption * chemThrust * ionPush)
+		currCodeChemThrust = math.Max(currCodeChemThrust, 0.0)
+		currCodeChemThrust = math.Min(currCodeChemThrust, 1.0)
+
 		chemPush = currCodeChemThrust * chemThrust
-		chemLFOXConsump = chemPush/(305.0 * g)
+		chemLFOXConsump = currCodeChemThrust * maxChemLFOXConsumption
 
 		totalPush = chemPush + ionPush
 
 		//Calculate acceleration
 		accel = totalPush / currMass
-		vaccel = mohoGAccel * math.Abs(1.0 - math.Pow(currVel/mohoLandOrbVel,2.0))
-		//fmt.Print(accel, totalPush, vaccel)
 		if accel < vaccel {
 			return -1.0, -1.0, -1.0, -1.0
 		}
@@ -189,7 +196,7 @@ func simulateMohoLandingAscent(mass float64, code []float64, battery float64, so
 		currVel -= haccel * timestep
 		if currVel <= mohoRV {
 			ascentValid = true
-			codeTime = time
+			//codeTime = time
 			break
 		}
 
@@ -208,34 +215,36 @@ func simulateMohoLandingAscent(mass float64, code []float64, battery float64, so
 	currEC = battery
 
 	for time := 0.0; time < 3000.0; time += timestep {
-		//fmt.Print(time, "\n")
-		//Read code
-		if nextCodeIndex < len(code) {
-			if time + codeTime >= currCodeTime + code[nextCodeIndex] {
-				currCodeTime += code[nextCodeIndex]
-				currCodeIonThrust = code[nextCodeIndex + 1]
-				currCodeChemThrust = code[nextCodeIndex + 2]
-				nextCodeIndex += 3
-			}
+		if math.Mod(time, 1.0) == 0.0 {
+			//fmt.Print(time, currVel, totalXenonUsed, totalLFOXUsed, currMass, "\n")
+			fmt.Printf("T = %fs: Velocity of %f m/s, Currently %fkg, XE Used: %fkg, LF+OX Used: %fkg\n", time, currVel, 1000.0*currMass, 1000.0*totalXenonUsed, 1000.0*totalLFOXUsed)
 		}
+		//Read code
+		//if nextCodeIndex < len(code) {
+		//	if time + codeTime >= currCodeTime + code[nextCodeIndex] {
+		//		currCodeTime += code[nextCodeIndex]
+		//		currCodeChemThrust = code[nextCodeIndex + 2]
+		//		nextCodeIndex += 3
+		//	}
+		//}
 
 		//Calculate thrust
-		ionPush = currCodeIonThrust * ionThrust
-		ionXeConsump = ionPush/(4200.0 * g)
-		ionECConsump = ionXeConsump * 180000.0
-		if (currEC <= 0.0) && (solar < ionECConsump) {
-			ionPush *= 0.5 + 0.5 * (solar/ionECConsump)
-		}
+		vaccel = mohoGAccel * math.Abs(1.0 - math.Pow(currVel/mohoLandOrbVel,2.0))
+
+		ionPush, iEC, ionXeConsump := calcIonStarvation(ionThrust, currCodeIonThrust, currEC, solar)
+		netEC := solar - iEC
+
+		currCodeChemThrust = (1.125 * maxChemLFOXConsumption * ionPush * ionPush - 1.125 * maxChemLFOXConsumption * currMass * currMass * vaccel * vaccel - 4.0/3.0 * ionXeConsump * ionPush * chemThrust)/(4.0/3.0 * ionXeConsump * chemThrust * chemThrust - 1.125 * maxChemLFOXConsumption * chemThrust * ionPush)
+		currCodeChemThrust = math.Max(currCodeChemThrust, 0.0)
+		currCodeChemThrust = math.Min(currCodeChemThrust, 1.0)
 
 		chemPush = currCodeChemThrust * chemThrust
-		chemLFOXConsump = chemPush/(305.0 * g)
+		chemLFOXConsump = chemPush/(rapierIspClosedCycle * g)
 
 		totalPush = chemPush + ionPush
 
 		//Calculate acceleration
 		accel = totalPush / currMass
-		vaccel = mohoGAccel * math.Abs(1.0 - math.Pow(currVel/mohoLandOrbVel,2.0))
-		//fmt.Print(accel, totalPush, vaccel)
 		if accel < vaccel {
 			return -1.0, -1.0, -1.0, -1.0
 		}
@@ -244,7 +253,7 @@ func simulateMohoLandingAscent(mass float64, code []float64, battery float64, so
 		//Updates
 		currMass -= chemLFOXConsump * timestep
 		currMass -= ionXeConsump * timestep
-		currEC += timestep * (solar - ionECConsump)
+		currEC += timestep * netEC
 		currEC = math.Max(currEC, 0.0)
 		currEC = math.Min(currEC, battery)
 
@@ -310,6 +319,8 @@ func simulateIonCircularization(apoapsis float64, periapsis float64, code []floa
 	var currSMA, currEccen, currPeri, currApo float64
 	var periVel, massRewarded, massPunished float64
 
+	//var zDist float64
+
 	for time := 0.0; time < 3000.0; time += timestep {
 		//Calculate gravity
 		distance = math.Hypot(x, y)
@@ -336,12 +347,14 @@ func simulateIonCircularization(apoapsis float64, periapsis float64, code []floa
 		//fmt.Print(ionPush, "\n")
 
 		chemPush = chemThrust * currCodeChemThrust
-		chemLFOXConsump = chemPush/(305.0*g)
+		chemLFOXConsump = chemPush/(rapierIspClosedCycle*g)
 		totalPush = chemPush + ionPush
 
 		//Calculate craft direction
 		zX = y/distance
 		zY = -x/distance
+		//zX = 1
+		//zY = 0
 
 		craftX = zX * aC - zY * aS
 		craftY = zY * aC + zX * aS
@@ -406,117 +419,6 @@ func simulateIonCircularization(apoapsis float64, periapsis float64, code []floa
 	return -1.0, -1.0, -1.0, -1.0, -1.0, -1.0
 }
 
-func calcOptimalMohoLanding(mass float64, solar float64, battery float64, ionThrust float64, chemThrust float64) (float64, float64, float64, float64) {
-	bestMass, bestPunishMass, bestXenon, bestLFOX := -1.0, -1.0, -1.0, -1.0
-
-	var randMass, randPMass, randXenon, randLFOX float64
-	var bestRandMass, bestRandPMass, bestRandXenon, bestRandLFOX float64
-	bestRandCode := []float64{}
-
-	for _ = range 20 {
-		bestRandMass, bestRandPMass, bestRandXenon, bestRandLFOX, bestRandCode = -1.0, -1.0, -1.0, -1.0, []float64{}
-		for _ = range 200 {
-			//Generate random codes
-			randomCode := []float64{}
-			universalIon := rand.Float64()
-			universalChem := 0.1 * rand.Float64()
-			//uT := 300.0 * rand.Float64()
-			for _ = range 3 + rand.Intn(3) {
-				randomCode = append(randomCode, 300.0 * rand.Float64(), universalIon, universalChem)
-			}
-			randomCode[0] = 0.0
-
-			randMass, randPMass, randXenon, randLFOX = simulateMohoLandingAscent(mass, randomCode, battery, solar, ionThrust, chemThrust)
-			if randMass > -1.0 {
-				if randPMass > bestRandPMass {
-					bestRandMass = randMass
-					bestRandPMass = randPMass
-					bestRandXenon = randXenon
-					bestRandLFOX = randLFOX
-					bestRandCode = randomCode
-					//fmt.Print(randomCode, "\n")
-					//fmt.Print(randMass, randPMass, randXenon, randLFOX, "\n\n")
-				}
-			}
-		}
-		//fmt.Print(bestRandMass, bestRandPMass, bestRandXenon, bestRandLFOX, bestRandCode, "\n\n")
-		if bestRandMass == -1.0 {
-			continue
-		}
-
-		oldCode := bestRandCode
-		oldMass := bestRandMass
-		oldPMass := bestRandPMass
-		oldXenon := bestRandXenon
-		oldLFOX := bestRandLFOX
-
-		codeVel := []float64{}
-		for _ = range len(oldCode) {
-			codeVel = append(codeVel, 0.0)
-		}
-		newCode := oldCode
-		for _ = range 5000 {
-			for i := 0; i < len(codeVel); i += 3 {
-				codeVel[i] *= 0.9
-				codeVel[i + 1] *= 0.9
-				codeVel[i + 2] *= 0.9
-
-				codeVel[i] += 10.0 * rand.NormFloat64()
-				codeVel[i + 1] += 0.5 * rand.NormFloat64()
-				codeVel[i + 2] += 0.5 * rand.NormFloat64()
-			}
-
-			for i := 0; i < len(newCode); i += 3 {
-				newCode[i] += codeVel[i]
-				newCode[i] = math.Max(newCode[i], 0.0)
-
-				newCode[i + 1] += codeVel[i + 1]
-				newCode[i + 1] = math.Max(newCode[i + 1], 0.0)
-				newCode[i + 1] = math.Min(newCode[i + 1], 1.0)
-
-				newCode[i + 2] += codeVel[i + 2]
-				newCode[i + 2] = math.Max(newCode[i + 2], 0.0)
-				newCode[i + 2] = math.Min(newCode[i + 2], 1.0)
-			}
-
-			newCode[0] = 0.0
-			newMass, newPMass, newXe, newLFOX := simulateMohoLandingAscent(mass, newCode, battery, solar, ionThrust, chemThrust)
-
-			if newMass > -1.0 {
-				if newPMass > oldPMass {
-					oldPMass = newPMass
-					oldMass = newMass
-					oldXenon = newXe
-					oldLFOX = newLFOX
-					if newPMass > bestPunishMass {
-						bestPunishMass = newPMass
-						fmt.Printf("Found new Moho landing/ascent: \n - Landing code: %v\n - Final mass: %ft\n - Xenon used: %ft\n - LF+OX mixture used: %ft\n\n", newCode, newMass, newXe, newLFOX)
-						//fmt.Print(newCode, newMass, newXe, newLFOX, "\n\n")
-					}
-				} else {
-					for i := range len(codeVel) {
-						codeVel[i] *= 0.9
-					}
-				}
-			} else {
-				for i := range len(codeVel) {
-					codeVel[i] = 0.0
-				}
-			}
-		}
-		//fmt.Print(oldCode, oldMass, oldPMass, oldXenon, oldLFOX, "\n\n")
-
-		if oldPMass >= bestPunishMass {
-			bestMass = oldMass
-			bestPunishMass = oldPMass
-			bestXenon = oldXenon
-			bestLFOX = oldLFOX
-		}
-	}
-
-	return bestMass, bestPunishMass, bestXenon, bestLFOX
-}
-
 func calcOptimalKerbinAscent(mass float64, solar float64, battery float64, ionThrust float64, chemThrust float64, fcConsump float64) (float64, float64, float64, float64, float64, float64) {
 	bestMass, bestRewardMass, bestPunishMass := -1.0, -1.0, -1.0
 	bestXenon, bestLFOX, bestLF := -1.0, -1.0, -1.0
@@ -534,20 +436,20 @@ func calcOptimalKerbinAscent(mass float64, solar float64, battery float64, ionTh
 	var randMass, randRewardMass, randPunishMass, randXe, randLFOX, randApo float64
 	var highVel, highHVel, highVVel, highEccen, highSMA, closedCycleMass float64
 
-	for _ = range 20 {
+	for _ = range 50 {
 		bestRandomMass, bestRandomRewardMass, bestRandomPunishMass, bestRandomXe, bestRandomLFOX, bestRandomApo, bestRandomApoRes, bestRandomPeri, bestRandomCode := -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, []float64{}
 		var randomApo, randomPeri float64
-		for iterRand := range 1000 {
+		for iterRand := range 2000 {
 			//Generate random apoapsis, periapsis, and codes
-			randomApo = kerbinRadius + kerbinAtmoAlt + 30000.0 * rand.Float64()
-			randomPeri = (kerbinRadius + highKerbinAlt) * rand.Float64()
+			randomApo = kerbinRadius + kerbinAtmoAlt + 45000.0 + 20000.0 * rand.Float64()
+			randomPeri = (kerbinRadius + highKerbinAlt) * (rand.Float64() * 0.3 + 0.2)
 			randomCode := []float64{}
 			for _ = range 1 + rand.Intn(4) {
-				randomCode = append(randomCode, 300.0 * rand.Float64(), math.Pi * (rand.Float64() - 0.5), rand.Float64(), rand.Float64())
+				randomCode = append(randomCode, 300.0 * rand.Float64(), math.Pi * (rand.Float64() - 0.5), 1.0, rand.Float64())
 			}
 
 			if iterRand < 750 {
-				randomCode = []float64{0.0, 0.4 + 0.4*rand.Float64(), rand.Float64(), 0.0}
+				randomCode = []float64{0.0, 0.3 + 0.1*rand.Float64(), 1.0, 0.0}
 			}
 
 			highVel = math.Sqrt(kerbinStdgp * (2/(kerbinRadius + highKerbinAlt) - 2/(randomApo + randomPeri)))
@@ -562,13 +464,13 @@ func calcOptimalKerbinAscent(mass float64, solar float64, battery float64, ionTh
 
 			//RAPIER burning
 			highVel = math.Hypot(highHVel, highVVel)
-			highVel -= 1650.0
+			highVel -= rapierMaxVel
 			if highVel < 0.0 {
 				highVel = 0.0
 			}
 
 			//Calculate mass at the end of closed cycle burning
-			closedCycleMass = highAltMass/math.Exp(highVel/(305.0 * g))
+			closedCycleMass = highAltMass/math.Exp(highVel/(rapierIspClosedCycle * g))
 
 			//fmt.Print(highVel, highHVel, highVVel, closedCycleMass, "\n\n")
 
@@ -616,7 +518,7 @@ func calcOptimalKerbinAscent(mass float64, solar float64, battery float64, ionTh
 
 		newCode := oldCode
 		newApo, newPeri := oldApo, oldPeri
-		for iter := range 5000 {
+		for iter := range 10000 {
 			apoVel *= 0.9
 			periVel *= 0.9
 
@@ -675,13 +577,13 @@ func calcOptimalKerbinAscent(mass float64, solar float64, battery float64, ionTh
 
 			//RAPIER burning
 			highVel = math.Hypot(highHVel, highVVel)
-			highVel -= 1650.0
+			highVel -= rapierMaxVel
 			if highVel < 0.0 {
 				highVel = 0.0
 			}
 
 			//Calculate mass at the end of closed cycle burning
-			closedCycleMass = highAltMass/math.Exp(highVel/(305.0 * g))
+			closedCycleMass = highAltMass/math.Exp(highVel/(rapierIspClosedCycle * g))
 
 			newMass, newRMAss, newPMass, newXe, newLFOX, newFApo := simulateIonCircularization(newApo, newPeri, newCode, closedCycleMass, battery, solar, ionThrust, chemThrust, fcConsump)
 			newLFOX += highAltMass - closedCycleMass
@@ -761,20 +663,21 @@ func main() {
 	fmt.Print(t, ec, xe, "\n\n")
 
 	numIons := 7.0
-	numPanels := 9.0
-	numBigPanels := 0.0
+	numPanels := 0.0
+	numBigPanels := 1.0
 	batteryCapacity := 100.0
-	startingMass := 6.2
+	startingMass := 6.61
 	fcArrays := 0.0
 
 	fmt.Printf("Starting Mass: %ft\n\n", startingMass)
 
-	mass, rewardMass, xenon, lfox, lf, apo := calcOptimalKerbinAscent(startingMass, 1.64 * numPanels + 24.4 * numBigPanels + 18.0 * fcArrays, batteryCapacity, 2.0 * numIons, 180.0, 0.000225 * fcArrays)
+	mass, rewardMass, xenon, lfox, lf, apo := calcOptimalKerbinAscent(startingMass, 1.64 * numPanels + 24.4 * numBigPanels + 18.0 * fcArrays, batteryCapacity, 2.0 * numIons, rapierClosedCycleThrust, 0.000225 * fcArrays)
 	fmt.Printf("Ascent Stats:\n - Final Mass: %ft\n - Xenon Used: %ft\n - LF+OX mixture used: %ft\n - LF used: %ft\n - Final Apoapsis: %fm\n\n",mass, xenon, lfox, lf, apo - kerbinRadius)
 	mohoMass := rewardMass/math.Exp(1500.0/(4200.0*g))
 	fmt.Printf("Mass at Moho:\n%ft\n\n", mohoMass)
 
-	orbMass, _, orbXe, orbLFOX := calcOptimalMohoLanding(mohoMass, batteryCapacity, 16.4 * numPanels + 244.0 * numBigPanels, 2.0 * numIons, 180.0)
+	//orbMass, _, orbXe, orbLFOX := calcOptimalMohoLanding(mohoMass, batteryCapacity, 16.4 * numPanels + 244.0 * numBigPanels, 2.0 * numIons, rapierClosedCycleThrust)
+	orbMass, _, orbXe, orbLFOX := simulateMohoLandingAscent(mohoMass, batteryCapacity, 16.4 * numPanels + 244.0 * numBigPanels, 2.0 * numIons, rapierClosedCycleThrust)
 	totalLFOX := orbLFOX + lfox
 	totalXe := orbXe + xenon + mass - mohoMass
 
@@ -792,7 +695,7 @@ func main() {
 	//fmt.Print(10000.0 * totalXe, 200.0 * actualOX, 200.0 * actualLF, "\n")
 
 	minimumDryMass := 0.0
-	minimumDryMass += 2.0 //RAPIER
+	minimumDryMass += rapierMass //RAPIER
 	minimumDryMass += 0.25 * numIons //Ion engines
 	minimumDryMass += 0.2 //Fairing
 	minimumDryMass += 0.1 //Wing
@@ -802,10 +705,11 @@ func main() {
 	minimumDryMass += 0.05 //Reaction wheel
 	minimumDryMass += batteryCapacity * 0.00005 //Batteries
 	minimumDryMass += 0.02 //Intakes
-	minimumDryMass += 0.011 //Hinge
-	minimumDryMass += 0.001 //Occlude
+	minimumDryMass += 0.01 //Hinge
+	//minimumDryMass += 0.001 //Occlude
 	minimumDryMass += 0.08 //Control
 	minimumDryMass += 0.24 * fcArrays //Fuel Cell test
+	minimumDryMass += 0.025 //Heat shielding
 
 	mk0s := 0.0
 	if lf > 0.5 {

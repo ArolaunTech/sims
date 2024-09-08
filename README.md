@@ -1,5 +1,5 @@
 # sims
-My simulations and optimizers. Please note that these were built for myself, not for anyone else, so it might be hard to use. No tech support will be provided by me.
+Some simulations and optimizers. Please note that these were built for myself, not for anyone else, so it might be hard to use. No tech support will be provided by me.
 
 A lot of these programs are unfinished and never will be completed.
 
@@ -31,6 +31,7 @@ A lot of these programs are unfinished and never will be completed.
  - ```ion.go```: Optimizes a Moho SSTO for minimum mass.
  - ```ion_engine.py```: Optimizes ion chairs for minimum mass while still being able to go to Mun.
  - ```j5ssto.py```: Optimizes Jool-5 SSTO route for maximum fractional payload.
+ - ```kicks.py```: Optimizes periapsis kicks for closest encounter.
  - ```planesim.cpp```: Optimizes RAPIER-based ascent profiles to reach a given suborbital trajectory using minimal fuel. One of my first C++ programs so may contain bad practices.
  - ```shift_assist.py```: Part of a multiple gravity assist planner.
  - ```single_stage.py```: A class that represents a single stage craft.
