@@ -32,14 +32,15 @@ planetVelocity = (G*solarMass/planetAltitude)**0.5
 planetOrbitalPeriod = 2*np.pi*planetAltitude/planetVelocity
 
 #Simulation parameters
-vRelative = 3000
+vRelative = 3970
 maxPlanetOrbits = 10
-targetShiftSum = 20 * np.pi/180
-maxShifts = 5
+targetShiftSum = (10 + 10*np.random.random()) * np.pi/180
+maxShifts = 3
 
 #Generate allowed phase shift angles
 possibleDelta = np.array([])
-for numPlanetOrbits in range(maxPlanetOrbits):
+planetOrbits = {}
+for numPlanetOrbits in range(1,maxPlanetOrbits):
 
 	startAngles = np.linspace(0, 4*np.pi, num=100)
 
@@ -86,11 +87,14 @@ for numPlanetOrbits in range(maxPlanetOrbits):
 	startAngles = np.unique(startAngles.round(decimals=6))
 
 	possibleDelta = np.concatenate((possibleDelta, startAngles))
+	for angle in startAngles:
+		planetOrbits[angle] = numPlanetOrbits
 
 possibleDelta = np.sort(possibleDelta)
 possibleDelta = np.unique(possibleDelta.round(decimals=6))
 print(len(possibleDelta))
 print(possibleDelta)
+print(planetOrbits)
 print(targetShiftSum)
 
 #print(aEjection, eEjection, pEjection)
@@ -102,7 +106,7 @@ print(targetShiftSum)
 #Optimize the targetShiftSum
 minError = 10
 minErrorChoice = np.array([])
-for i in range(10000):
+for i in range(100000):
 	choice = np.random.choice(possibleDelta, size=(1+np.random.randint(maxShifts)))
 	error = np.fabs(np.sum(choice)%(2*np.pi) - targetShiftSum)
 	if error < minError:
@@ -110,6 +114,7 @@ for i in range(10000):
 		minErrorChoice = np.copy(choice)
 print(minError)
 print(minErrorChoice)
+print([planetOrbits[angle] for angle in minErrorChoice])
 aEjection, eEjection, pEjection = calcOrbitParameters(minErrorChoice)
 prefix = 0
 for i in range(len(aEjection)):

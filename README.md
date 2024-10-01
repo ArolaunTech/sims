@@ -33,6 +33,7 @@ A lot of these programs are unfinished and never will be completed.
  - ```j5ssto.py```: Optimizes Jool-5 SSTO route for maximum fractional payload.
  - ```kicks.py```: Optimizes periapsis kicks for closest encounter.
  - ```planesim.cpp```: Optimizes RAPIER-based ascent profiles to reach a given suborbital trajectory using minimal fuel. One of my first C++ programs so may contain bad practices.
+ - ```relvelmagnifier.py```: Calculates gravity assist trajectories to save dV through orbit rotation shenanigans.
  - ```shift_assist.py```: Part of a multiple gravity assist planner.
  - ```single_stage.py```: A class that represents a single stage craft.
  - ```single_stage_simulation.py```: Optimizes single stage craft landings in vacuum for maximum payload fraction.
