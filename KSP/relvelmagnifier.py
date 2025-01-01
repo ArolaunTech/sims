@@ -4,15 +4,31 @@ import matplotlib.pyplot as plt
 #Planet parameters
 planetSMA = 5263138304
 planetEccentricity = 0.2
+planetSTDGP = 250000*250000*2.7
+planetSOI = 9646663
 
 #Sun parameters
 solarRadius = 261600000
 solarSTDGP = 1.7 * 9.81 * solarRadius * solarRadius #G*M_sun
+#planetSOI = planetSMA * (planetSTDGP/solarSTDGP)**0.4
 
 #Ship parameters
 initRV = 30
 initAngle = np.random.random() * 2 * np.pi
+planetPeriapsis = 270000
+maxAssists = 200
+endingRV = 2110
 print(initAngle)
+
+def getMaxDeflection(relvel):
+	if relvel < np.sqrt(planetSTDGP/planetSOI):
+		return np.pi
+	sma = 1/(2/planetSOI - relvel * relvel/planetSTDGP)
+	eccentricity = np.sqrt(1 - (planetPeriapsis**2) * (2/planetPeriapsis - 1/sma)/sma)
+	q = (sma * (1 - eccentricity * eccentricity)/planetSOI - 1)/eccentricity
+	hvel = planetPeriapsis * np.sqrt(planetSTDGP * (2/planetPeriapsis - 1/sma))/planetSOI
+	vvel = np.sqrt(relvel * relvel - hvel * hvel)
+	return 2 * np.arcsin((hvel * np.sqrt(1 - q * q) - vvel * q)/relvel)
 
 def getDist(a, e, p, v):
 	return a * (1 - e * e) / (1 + e * np.cos(v - p))
@@ -89,8 +105,9 @@ def getNewIntersection(a, e, p, initAngle, initRV, ejectionAngle, plotOrbits=Fal
 
 	solutionDist = getDist(a, e, p, solution)
 
-	solutionHOld, solutionVOld = getVelocityHV(a, e, p, solution)
-	solutionHNew, solutionVNew = getVelocityHV(na, ne, nperi, solution)
+	solutionHOld, solutionVOld = getVelocityXY(a, e, p, solution)
+	solutionHNew, solutionVNew = getVelocityXY(na, ne, nperi, solution)
+	intersectionAngle = np.arctan2(solutionVNew - solutionVOld, solutionHNew - solutionHOld)
 
 	nrelvel = np.sqrt((solutionHOld - solutionHNew)**2 + (solutionVOld - solutionVNew)**2)
 
@@ -103,38 +120,61 @@ def getNewIntersection(a, e, p, initAngle, initRV, ejectionAngle, plotOrbits=Fal
 		plotOrbit2D(na, ne, nperi, 'white')
 		plt.plot(solutionX, solutionY, 'ro')
 
-	return nrelvel, solution
+	return nrelvel, solution, intersectionAngle
 
-def findBestSequence(a, e, p, initAngle, initRV, numAssists, targetRelVel):
-	beforeAssists = [initAngle] 
-	afterAssists = []
+def findBestSequence(a, e, p, initAngle, initRV, numAssists, targetRelVel, plotting):
+	assistData = []
 
 	currRV = initRV
 	currAngle = initAngle
+	incomingAngle = None
+	assistsDone = 0
 	for i in range(numAssists):
 		bestAngle = 0
 		bestRelvel = 0
 		bestNewAngle = 0
+		bestIncomingAngle = 0
 
 		for j in range(1000):
 			if j > 500:
 				angle = 0.01*(np.random.random() * 2 - 1) + bestAngle
 			else:
 				angle = j * np.pi * 0.004
-			relvel, newAngle = getNewIntersection(planetSMA, planetEccentricity, 0, currAngle, currRV, angle, False)
+			relvel, newAngle, newincomingAngle = getNewIntersection(planetSMA, planetEccentricity, 0, currAngle, currRV, angle, False)
 			if relvel > bestRelvel:
 				bestRelvel = relvel
 				bestAngle = angle
 				bestNewAngle = newAngle
-		print(i, bestRelvel, bestAngle, bestNewAngle)
+				bestIncomingAngle = newincomingAngle
+		if incomingAngle is None:
+			requiredDeflection = 0
+		else:
+			incomingAngle = incomingAngle % (2 * np.pi)
+			bestAngle = bestAngle % (2 * np.pi)
+			requiredDeflection = abs(incomingAngle - bestAngle)
+			if requiredDeflection > np.pi:
+				requiredDeflection = 2 * np.pi - requiredDeflection
+		maxDeflection = getMaxDeflection(currRV)
+		neededAssists = int(np.ceil(requiredDeflection/maxDeflection))
+		if neededAssists == 0:
+			neededAssists = 1
+		if plotting:
+			print("Iteration:", i, "# of assists before iteration:", assistsDone, "Relative velocity to planet during iteration:", currRV, "m/s")
+		assistData.append([i, assistsDone, currRV])
+		assistsDone += neededAssists
 		if bestRelvel > targetRelVel:
+			if plotting:
+				print("Done after " + str(assistsDone) + " assists, Relative velocity: " + str(bestRelvel) + " m/s")
+			assistData.append([i+1, assistsDone, bestRelvel])
 			break
 
-		getNewIntersection(planetSMA, planetEccentricity, 0, currAngle, currRV, bestAngle, True)
+		if plotting:
+			getNewIntersection(planetSMA, planetEccentricity, 0, currAngle, currRV, bestAngle, True)
 
 		currAngle = bestNewAngle
 		currRV = bestRelvel
-
+		incomingAngle = bestIncomingAngle
+	return assistData
 
 fig, ax = plt.subplots()
 ax.set_facecolor('black')
@@ -155,25 +195,31 @@ print(initX, initY)
 print("Hvel: " + str(initHV) + "m/s, Vvel: " + str(initVV) + "m/s")
 print("Xvel: " + str(initXV) + "m/s, Yvel: " + str(initYV) + "m/s")
 
-"""
-bestAngle = 0
-bestRelvel = 0
-for i in range(1000):
-	if i > 500:
-		angle = 0.01*(np.random.random() * 2 - 1) + bestAngle
-	else:
-		angle = i * np.pi * 0.004
-	relvel, newAngle = getNewIntersection(planetSMA, planetEccentricity, 0, initAngle, initRV, angle, False)
-	if relvel > bestRelvel:
-		bestRelvel = relvel
-		bestAngle = angle
-		print(bestRelvel, bestAngle)
+savingsPerAssist = []
+assists = []
 
-getNewIntersection(planetSMA, planetEccentricity, 0, initAngle, initRV, bestAngle, True)
-"""
+for i in range(10):
+	assistData = findBestSequence(planetSMA, planetEccentricity, 0, initAngle, initRV, maxAssists, endingRV, False)
+	numAssists = assistData[-1][1]
+	finalRV = assistData[-1][2]
+	finalSMA = 1/(2/planetSOI - finalRV * finalRV/planetSTDGP)
+	finalPeriapsisVelocity = np.sqrt(planetSTDGP * (2/planetPeriapsis - 1/finalSMA))
+	for point in assistData:
+		relvel = point[2]
+		sma = 1/(2/planetSOI - relvel * relvel/planetSTDGP)
+		periapsisVelocity = np.sqrt(planetSTDGP * (2/planetPeriapsis - 1/sma))
+		savingsPerAssist.append(finalPeriapsisVelocity - periapsisVelocity - 0.1 * (numAssists - point[1]))
+		assists.append(numAssists - point[1])
 
-findBestSequence(planetSMA, planetEccentricity, 0, initAngle, initRV, 200, 2110)
+findBestSequence(planetSMA, planetEccentricity, 0, initAngle, initRV, maxAssists, endingRV, True)
 
 plt.plot(initX, initY, 'bx')
+plt.show()
 
+plt.plot(assists, savingsPerAssist, "rx")
+plt.axhline(y=1040, color="black", linestyle="dashed", label="Messenger Assists (est.)")
+plt.legend()
+plt.title("Δv savings of repeated Moho assists over direct Moho-Eve transfer")
+plt.xlabel("Number of Moho gravity assists done")
+plt.ylabel("Δv savings over direct transfer (m/s)")
 plt.show()

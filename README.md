@@ -32,11 +32,14 @@ A lot of these programs are unfinished and never will be completed.
  - ```ion_engine.py```: Optimizes ion chairs for minimum mass while still being able to go to Mun.
  - ```j5ssto.py```: Optimizes Jool-5 SSTO route for maximum fractional payload.
  - ```kicks.py```: Optimizes periapsis kicks for closest encounter.
+ - ```landingprofileopt.cpp```: Given fuel amounts in orbit, optimizes landing profile to use as little fuel as possible.
  - ```planesim.cpp```: Optimizes RAPIER-based ascent profiles to reach a given suborbital trajectory using minimal fuel. One of my first C++ programs so may contain bad practices.
+ - ```prop.py```: (Unsuccessfully) calculates aspects of KSP helicopters.
  - ```relvelmagnifier.py```: Calculates gravity assist trajectories to save dV through orbit rotation shenanigans.
  - ```shift_assist.py```: Part of a multiple gravity assist planner.
  - ```single_stage.py```: A class that represents a single stage craft.
  - ```single_stage_simulation.py```: Optimizes single stage craft landings in vacuum for maximum payload fraction.
+ - ```twrlanding.py```: Calculates losses in vacuum landings based on the TWR of craft.
  - ```tylo_landing.py```: Optimizes Tylo landers for minimum mass.
  - ```tylo_optimizer_test.py```: An example of how to use ```single_stage_simulation.py``` to optimize a Tylo lander.
  - ```utils.py```: A utils library for ```single_stage.py```.
