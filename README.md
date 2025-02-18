@@ -26,10 +26,14 @@ A lot of these programs are unfinished and never will be completed.
 
 ### KSP simulations:
  - ```comms.py```: Optimizes satellite communication networks with a given number of satellites for maximum reliability.
+ - ```consts.h```: Some constants. Required by some of the C++ optimizers.
+ - ```curves.h```: Defines some curves. Required by some of the C++ optimizers.
  - ```fuelopt.py```: Optimizes the distribution of fuel across rocket stages for maximum delta-v.
+ - ```generallandingprofile.cpp```: (Tries to) find the optimal landing profile for a given craft to land on a given body.
  - ```graphtraverse.py```: Optimizes the location of a mothership in the Jool system for the most efficient Jool-5. (yes I know it's Elliptical Laythe and Tylo Orbit)
  - ```ion.go```: Optimizes a Moho SSTO for minimum mass.
  - ```ion_engine.py```: Optimizes ion chairs for minimum mass while still being able to go to Mun.
+ - ```ion_landing.py```: Simulates the Constant Altitude and Constant Horizontal Acceleration landing profiles.
  - ```j5ssto.py```: Optimizes Jool-5 SSTO route for maximum fractional payload.
  - ```kicks.py```: Optimizes periapsis kicks for closest encounter.
  - ```landingprofileopt.cpp```: Given fuel amounts in orbit, optimizes landing profile to use as little fuel as possible.
