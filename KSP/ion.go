@@ -16,14 +16,14 @@ const maxKerbinCircAlt float64 = 9.0e+6
 const minKerbinCircAlt float64 = 7.0e+4
 
 const spaceKerbinAlt float64 = 7.0e+4
-const highKerbinAlt float64 = 1.8e+4
+const highKerbinAlt float64 = 7.0e+3
 
-const mohoRadius float64 = 2.5e+5
-const mohoStdgp float64 = 0.275 * g * mohoRadius * mohoRadius
-const mohoRotp float64 = 1.21e+6
+const mohoRadius float64 = 6e+4
+const mohoStdgp float64 = 0.05 * g * mohoRadius * mohoRadius
+const mohoRotp float64 = 4.04e+4
 
-const mohoOrbAlt float64 = 1.0e+4
-const mohoLandAlt float64 = 5.0e+3
+const mohoOrbAlt float64 = 3.0e+3
+const mohoLandAlt float64 = 2.0e+3
 
 const mohoRV float64 = 2.0 * math.Pi * (mohoRadius + mohoLandAlt)/mohoRotp
 var mohoGAccel float64 = mohoStdgp/math.Pow(mohoRadius + mohoLandAlt, 2.0)
@@ -32,10 +32,10 @@ var mohoLandOrbVel float64 = math.Sqrt(mohoStdgp/(mohoRadius + mohoLandAlt))
 const ionEC float64 = 600.0/(7.0 * g)
 const ionXe float64 = 1.0/(2100.0 * g)
 
-const rapierIspClosedCycle float64 = 305.0
-const rapierClosedCycleThrust float64 = 180.0
-const rapierMaxVel float64 = 1680.0
-const rapierMass float64 = 2
+const rapierIspClosedCycle float64 = 320.0
+const rapierClosedCycleThrust float64 = 32.0
+const rapierMaxVel float64 = 700.0
+const rapierMass float64 = 0.75 + 0.23
 
 func calcSingleEngineMax(ec float64) (float64, float64, float64) {
 	//Returns single ion engine thrust (kN), total EC consumption (u/s), and xenon consumption (tons/s).
@@ -662,26 +662,26 @@ func main() {
 	t, ec, xe = calcIonStarvation(14.0, 0.5, 0.0, 10.0)
 	fmt.Print(t, ec, xe, "\n\n")
 
-	numIons := 7.0
-	numPanels := 0.0
-	numBigPanels := 1.0
+	numIons := 1.0
+	numPanels := 4.0
+	numBigPanels := 0.0
 	batteryCapacity := 100.0
-	startingMass := 6.61
+	startingMass := 3.65
 	fcArrays := 0.0
 
 	fmt.Printf("Starting Mass: %ft\n\n", startingMass)
 
 	mass, rewardMass, xenon, lfox, lf, apo := calcOptimalKerbinAscent(startingMass, 1.64 * numPanels + 24.4 * numBigPanels + 18.0 * fcArrays, batteryCapacity, 2.0 * numIons, rapierClosedCycleThrust, 0.000225 * fcArrays)
 	fmt.Printf("Ascent Stats:\n - Final Mass: %ft\n - Xenon Used: %ft\n - LF+OX mixture used: %ft\n - LF used: %ft\n - Final Apoapsis: %fm\n\n",mass, xenon, lfox, lf, apo - kerbinRadius)
-	mohoMass := rewardMass/math.Exp(1500.0/(4200.0*g))
+	mohoMass := rewardMass/math.Exp(1000.0/(4200.0*g))
 	fmt.Printf("Mass at Moho:\n%ft\n\n", mohoMass)
 
 	//orbMass, _, orbXe, orbLFOX := calcOptimalMohoLanding(mohoMass, batteryCapacity, 16.4 * numPanels + 244.0 * numBigPanels, 2.0 * numIons, rapierClosedCycleThrust)
-	orbMass, _, orbXe, orbLFOX := simulateMohoLandingAscent(mohoMass, batteryCapacity, 16.4 * numPanels + 244.0 * numBigPanels, 2.0 * numIons, rapierClosedCycleThrust)
+	orbMass, _, orbXe, orbLFOX := simulateMohoLandingAscent(mohoMass, batteryCapacity, 1.64 * numPanels + 24.4 * numBigPanels, 2.0 * numIons, rapierClosedCycleThrust)
 	totalLFOX := orbLFOX + lfox
 	totalXe := orbXe + xenon + mass - mohoMass
 
-	dryMass := orbMass/math.Exp(600.0/(4200*g))
+	dryMass := orbMass/math.Exp(200.0/(4200*g))
 	totalXe += orbMass - dryMass
 
 	fmt.Printf("Final Mass: %ft\n\n", dryMass)
@@ -698,7 +698,7 @@ func main() {
 	minimumDryMass += rapierMass //RAPIER
 	minimumDryMass += 0.25 * numIons //Ion engines
 	minimumDryMass += 0.2 //Fairing
-	minimumDryMass += 0.1 //Wing
+	minimumDryMass += 0.05 //Wing
 	minimumDryMass += 0.025 * numPanels //Solar Panels
 	minimumDryMass += 0.3 * numBigPanels //Gigantors
 	minimumDryMass += 0.14 //Kerbal + seat
@@ -709,11 +709,12 @@ func main() {
 	//minimumDryMass += 0.001 //Occlude
 	minimumDryMass += 0.08 //Control
 	minimumDryMass += 0.24 * fcArrays //Fuel Cell test
-	minimumDryMass += 0.025 //Heat shielding
+	//minimumDryMass += 0.025 //Heat shielding
 
 	mk0s := 0.0
-	if lf > 0.5 {
-		mk0s = math.Ceil(4.0 * (lf - 0.5))
+	strakeLF := 0.0
+	if lf > strakeLF {
+		mk0s = math.Ceil(4.0 * (lf - strakeLF))
 		minimumDryMass += mk0s * 0.025
 	}
 
@@ -722,7 +723,7 @@ func main() {
 
 	minLFOX := minLFOXCapacity(totalLFOX)
 	fmt.Printf("Xenon Capacity: %ft (%f units)\nLF+OX Mixture Capacity: %ft (%f units)\nLF Capacity: %ft (%f units)\n\n", minXe, 10000.0 * minXe, minLFOX, 200.0 * minLFOX, 0.5 + 0.25 * mk0s, 100.0 + 50.0 * mk0s)
-	//fmt.Print(minXe, minLFOX, 0.5 + 0.25 * mk0s, "\n")
+	//fmt.Print(minXe, minLFOX, strakeLF + 0.25 * mk0s, "\n")
 
 	minimumDryMass += minLFOX / 8.0 //LFOX tanks
 

@@ -390,7 +390,7 @@ vector2D calculateWingForce(double x, double y, double vx, double vy, double cx,
 simulationResult simulate(const std::vector<std::vector<double> > code, double incidence, double startingMass, double targetApo, double targetPeri, double wingarea) {
 	double x = 0.0;
 	double y = KERBIN_RADIUS;
-	double vx = 2.0 * pi * y/KERBIN_ROT + 0.0;
+	double vx = 2.0 * pi * y/KERBIN_ROT + 200.0;
 	double vy = 0.0;
 
 	double temperature = 0.0;
@@ -728,7 +728,7 @@ int main() {
 	std::cout << "Simulation Results: " << res.punishMass << ", Total LF Used: " << res.totalLF << "t, Total LFOX Used: " << res.totalLFOX << "t\n";
 	*/
 
-	double optimizerRes = findBestAscent(5, 0.0, 6.276, 128838.436, -429169.75, 1.18);
+	double optimizerRes = findBestAscent(5, 0.0, 50.0, 75000.0, 0.0, 20.0);
 	std::cout << "Optimizer Results: " << optimizerRes << "\n";
 	return 0;
 }
