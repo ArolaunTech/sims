@@ -33,9 +33,11 @@ const ionEC float64 = 600.0/(7.0 * g)
 const ionXe float64 = 1.0/(2100.0 * g)
 
 const rapierIspClosedCycle float64 = 320.0
-const rapierClosedCycleThrust float64 = 32.0
-const rapierMaxVel float64 = 700.0
-const rapierMass float64 = 0.75 + 0.23
+const rapierClosedCycleThrust float64 = 40.0
+const rapierMaxVel float64 = 0.0
+const rapierMass float64 = 0.0 + 0.26
+
+const rocketdragFactor float64 = rapierClosedCycleThrust/(rapierClosedCycleThrust - 4.0)
 
 func calcSingleEngineMax(ec float64) (float64, float64, float64) {
 	//Returns single ion engine thrust (kN), total EC consumption (u/s), and xenon consumption (tons/s).
@@ -468,6 +470,7 @@ func calcOptimalKerbinAscent(mass float64, solar float64, battery float64, ionTh
 			if highVel < 0.0 {
 				highVel = 0.0
 			}
+			highVel *= rocketdragFactor
 
 			//Calculate mass at the end of closed cycle burning
 			closedCycleMass = highAltMass/math.Exp(highVel/(rapierIspClosedCycle * g))
@@ -498,7 +501,7 @@ func calcOptimalKerbinAscent(mass float64, solar float64, battery float64, ionTh
 		}
 
 		//Iteratively improve the code to make it better over time
-		if (bestRandomPunishMass > bestPunishMass) {fmt.Printf("New Kerbin ascent found:\n - Circularization code: %v\n - Starting periapsis: %fm\n - Starting apoapsis: %fm\n - Final mass: %ft\n - Final apoapsis: %fm\n\n", bestRandomCode, bestRandomPeri - kerbinRadius, bestRandomApo - kerbinRadius, bestRandomMass, bestRandomApoRes - kerbinRadius)}
+		if (bestRandomPunishMass > bestPunishMass) {fmt.Printf("New Kerbin ascent found:\n - Circularization code: %v\n - Starting periapsis: %fm\n - Starting apoapsis: %fm\n - dV used: %fm/s\n - Final mass: %ft\n - Final apoapsis: %fm\n\n", bestRandomCode, bestRandomPeri - kerbinRadius, bestRandomApo - kerbinRadius, highVel, bestRandomMass, bestRandomApoRes - kerbinRadius)}
 		
 		oldCode := bestRandomCode
 		oldApo := bestRandomApo
@@ -581,6 +584,7 @@ func calcOptimalKerbinAscent(mass float64, solar float64, battery float64, ionTh
 			if highVel < 0.0 {
 				highVel = 0.0
 			}
+			highVel *= rocketdragFactor
 
 			//Calculate mass at the end of closed cycle burning
 			closedCycleMass = highAltMass/math.Exp(highVel/(rapierIspClosedCycle * g))
@@ -593,7 +597,7 @@ func calcOptimalKerbinAscent(mass float64, solar float64, battery float64, ionTh
 					oldCode, oldApo, oldPeri, oldPMass, oldMass, oldRMass, oldXe, oldLFOX, oldFApo = newCode, newApo, newPeri, newPMass, newMass, newRMAss, newXe, newLFOX, newFApo
 					numImprovements += 1
 					if newPMass > bestPunishMass {
-						fmt.Printf("Kerbin ascent found on iteration #%d:\n - Circularization code: %v\n - Starting periapsis: %fm\n - Starting apoapsis: %fm\n - Final mass: %ft\n - Final apoapsis: %fm\n\n", iter, newCode, newPeri - kerbinRadius, newApo - kerbinRadius, newMass, newFApo - kerbinRadius)
+						fmt.Printf("Kerbin ascent found on iteration #%d:\n - Circularization code: %v\n - Starting periapsis: %fm\n - Starting apoapsis: %fm\n - dV used: %fm/s\n - Final mass: %ft\n - Final apoapsis: %fm\n\n", iter, newCode, newPeri - kerbinRadius, newApo - kerbinRadius, highVel, newMass, newFApo - kerbinRadius)
 						//fmt.Print(newMass, iter, newApo, newPeri, newFApo, "\n", newCode, "\n\n")
 					}
 				} else {
@@ -666,7 +670,7 @@ func main() {
 	numPanels := 4.0
 	numBigPanels := 0.0
 	batteryCapacity := 100.0
-	startingMass := 3.65
+	startingMass := 3.18
 	fcArrays := 0.0
 
 	fmt.Printf("Starting Mass: %ft\n\n", startingMass)
@@ -698,17 +702,18 @@ func main() {
 	minimumDryMass += rapierMass //RAPIER
 	minimumDryMass += 0.25 * numIons //Ion engines
 	minimumDryMass += 0.2 //Fairing
-	minimumDryMass += 0.05 //Wing
+	//minimumDryMass += 0.05 //Wing
 	minimumDryMass += 0.025 * numPanels //Solar Panels
 	minimumDryMass += 0.3 * numBigPanels //Gigantors
 	minimumDryMass += 0.14 //Kerbal + seat
 	minimumDryMass += 0.05 //Reaction wheel
 	minimumDryMass += batteryCapacity * 0.00005 //Batteries
-	minimumDryMass += 0.02 //Intakes
-	minimumDryMass += 0.01 //Hinge
+	//minimumDryMass += 0.01 //Intakes
+	minimumDryMass += 0.02 //Hinge
 	//minimumDryMass += 0.001 //Occlude
 	minimumDryMass += 0.08 //Control
 	minimumDryMass += 0.24 * fcArrays //Fuel Cell test
+	//minimumDryMass += 0.002 //Gears (flag)
 	//minimumDryMass += 0.025 //Heat shielding
 
 	mk0s := 0.0
@@ -722,7 +727,7 @@ func main() {
 	minimumDryMass += minXe / 3.0 //Xenon tanks
 
 	minLFOX := minLFOXCapacity(totalLFOX)
-	fmt.Printf("Xenon Capacity: %ft (%f units)\nLF+OX Mixture Capacity: %ft (%f units)\nLF Capacity: %ft (%f units)\n\n", minXe, 10000.0 * minXe, minLFOX, 200.0 * minLFOX, 0.5 + 0.25 * mk0s, 100.0 + 50.0 * mk0s)
+	fmt.Printf("Xenon Capacity: %ft (%f units)\nLF+OX Mixture Capacity: %ft (%f units)\nLF Capacity: %ft (%f units)\n\n", minXe, 10000.0 * minXe, minLFOX, 200.0 * minLFOX, strakeLF + 0.25 * mk0s, strakeLF * 200.0 + 50.0 * mk0s)
 	//fmt.Print(minXe, minLFOX, strakeLF + 0.25 * mk0s, "\n")
 
 	minimumDryMass += minLFOX / 8.0 //LFOX tanks

@@ -84,6 +84,9 @@ bodies["bop"]     = {"mass": 3.7261090 * 10 ** 19, "radius": 65000}
 bodies["pol"]     = {"mass": 1.0813507 * 10 ** 19, "radius": 44000}
 bodies["eeloo"]   = {"mass": 1.1149224 * 10 ** 21, "radius": 210000}
 
+for alias in aliases:
+    bodies[alias] = bodies[aliases[alias]]
+
 # Returns the fraction of your thrust that has to be upward in order to fight gravity.
 def sine_constant_altitude_thrust_angle(thrust, craft_mass, vx, altitude, preset = "", mass = 0, radius = 0):
     if preset in bodies:

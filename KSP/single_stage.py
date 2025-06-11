@@ -118,3 +118,7 @@ class SingleStageCraft:
 
         self.fuel_used[best_fuel] += (self.wet_mass - new_mass)/fuel_masses[best_fuel]
         self.wet_mass = new_mass
+
+    def use_fuel(self, fueltype, fuel):
+        self.fuel_used[fueltype] += fuel
+        self.wet_mass -= fuel
