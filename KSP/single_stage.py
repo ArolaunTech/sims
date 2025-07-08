@@ -45,6 +45,7 @@ class SingleStageCraft:
         self.wet_mass = _wet_mass
         for engine in self.engines:
             self.throttles[engine] = 0
+        self.total_thrust = 0
 
     def instantiate_from_craft_file(self, craft_file_path):
         # Not implemented yet!

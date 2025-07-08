@@ -66,23 +66,23 @@ aliases["kerbol"] = "the sun"
 aliases["mun"] = "the mun"
 
 # Initialize dictionaries. Maybe later we can make this read from a text file instead of it being hardcoded.
-bodies["the sun"] = {"mass": 1.7565459 * 10 ** 28, "radius": 261600000}
-bodies["moho"]    = {"mass": 2.5263314 * 10 ** 21, "radius": 250000}
-bodies["eve"]     = {"mass": 1.2243980 * 10 ** 23, "radius": 700000}
-bodies["gilly"]   = {"mass": 1.2420363 * 10 ** 17, "radius": 13000}
-bodies["kerbin"]  = {"mass": 5.2915158 * 10 ** 22, "radius": 600000}
-bodies["the mun"] = {"mass": 9.7599066 * 10 ** 20, "radius": 200000}
-bodies["minmus"]  = {"mass": 2.6457580 * 10 ** 19, "radius": 60000}
-bodies["duna"]    = {"mass": 4.5154270 * 10 ** 21, "radius": 320000}
-bodies["ike"]     = {"mass": 2.7821615 * 10 ** 20, "radius": 130000}
-bodies["dres"]    = {"mass": 3.2190937 * 10 ** 20, "radius": 138000}
-bodies["jool"]    = {"mass": 4.2332127 * 10 ** 24, "radius": 6000000}
-bodies["laythe"]  = {"mass": 2.9397311 * 10 ** 22, "radius": 500000}
-bodies["vall"]    = {"mass": 3.1087655 * 10 ** 21, "radius": 300000}
-bodies["tylo"]    = {"mass": 4.2332127 * 10 ** 22, "radius": 600000}
-bodies["bop"]     = {"mass": 3.7261090 * 10 ** 19, "radius": 65000}
-bodies["pol"]     = {"mass": 1.0813507 * 10 ** 19, "radius": 44000}
-bodies["eeloo"]   = {"mass": 1.1149224 * 10 ** 21, "radius": 210000}
+bodies["the sun"] = {"mass": 1.7565459 * 10 ** 28, "radius": 261600000, "rotationalperiod": 432000}
+bodies["moho"]    = {"mass": 2.5263314 * 10 ** 21, "radius": 250000,    "rotationalperiod": 1210000}
+bodies["eve"]     = {"mass": 1.2243980 * 10 ** 23, "radius": 700000,    "rotationalperiod": 80500}
+bodies["gilly"]   = {"mass": 1.2420363 * 10 ** 17, "radius": 13000,     "rotationalperiod": 28255}
+bodies["kerbin"]  = {"mass": 5.2915158 * 10 ** 22, "radius": 600000,    "rotationalperiod": 21549.4251830898}
+bodies["the mun"] = {"mass": 9.7599066 * 10 ** 20, "radius": 200000,    "rotationalperiod": 138984.376574476}
+bodies["minmus"]  = {"mass": 2.6457580 * 10 ** 19, "radius": 60000,     "rotationalperiod": 40400}
+bodies["duna"]    = {"mass": 4.5154270 * 10 ** 21, "radius": 320000,    "rotationalperiod": 65517.859375}
+bodies["ike"]     = {"mass": 2.7821615 * 10 ** 20, "radius": 130000,    "rotationalperiod": 65517.8621348081}
+bodies["dres"]    = {"mass": 3.2190937 * 10 ** 20, "radius": 138000,    "rotationalperiod": 34800}
+bodies["jool"]    = {"mass": 4.2332127 * 10 ** 24, "radius": 6000000,   "rotationalperiod": 36000}
+bodies["laythe"]  = {"mass": 2.9397311 * 10 ** 22, "radius": 500000,    "rotationalperiod": 52980.8790593796}
+bodies["vall"]    = {"mass": 3.1087655 * 10 ** 21, "radius": 300000,    "rotationalperiod": 105962.088893924}
+bodies["tylo"]    = {"mass": 4.2332127 * 10 ** 22, "radius": 600000,    "rotationalperiod": 211926.35802123}
+bodies["bop"]     = {"mass": 3.7261090 * 10 ** 19, "radius": 65000,     "rotationalperiod": 544507.428516654}
+bodies["pol"]     = {"mass": 1.0813507 * 10 ** 19, "radius": 44000,     "rotationalperiod": 901902.623531173}
+bodies["eeloo"]   = {"mass": 1.1149224 * 10 ** 21, "radius": 210000,    "rotationalperiod": 19460}
 
 for alias in aliases:
     bodies[alias] = bodies[aliases[alias]]
