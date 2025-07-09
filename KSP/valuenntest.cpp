@@ -9,14 +9,23 @@
 #include "random.h"
 #include "body.h"
 #include "nn.h"
+#include "debug.h"
 
 const double timestep = 0.1;
 
-class StateValueCollector {
-	private:
+struct SARGroup {
+	std::vector<double> state;
+	std::vector<double> actionRandomness;
+	double reward;
 
-	public:
-		std::vector<std::pair<std::vector<double>, double> > stateValuePairs;
+	SARGroup(std::vector<double> newState, std::vector<double> newActionRandomness, double newReward) :
+		state(newState), 
+		actionRandomness(newActionRandomness), 
+		reward(newReward) {}
+};
+
+struct StateValueCollector {
+	std::vector<SARGroup> stateValuePairs;
 };
 
 struct Result {
@@ -25,7 +34,7 @@ struct Result {
 	double score;
 };
 
-Result simulate(Body body, Craft craft, double alt, double randomness, NN estimator, StateValueCollector& collector) {
+Result simulate(Body body, Craft craft, double alt, double randomness, NN agent, StateValueCollector& collector) {
 	/*=== Constants ===*/
 	double total_thrust = 0;
 	for (auto const & iterator : craft.engines) {
@@ -41,28 +50,33 @@ Result simulate(Body body, Craft craft, double alt, double randomness, NN estima
 	double time = 0;
 
 	/*=== Initialize state vector ===*/
-	std::vector<double> stateVector(engines.size() + 6);
+	std::vector<double> stateVector(engines.size() + 8);
 
 	/*=== Collector ===*/
-	std::vector<std::pair<std::vector<double>, double> > stateValuePairs;
+	std::vector<SARGroup> stateValuePairs;
 
 	/*=== End condition ===*/
 	double periapsis = 0;
+	double vh, vv, dist;
 	bool valid = true;
 
 	/*=== Iterate ===*/
 	while (periapsis < body.radius) {
 		/*=== Calculate state vector ===*/
-		double dist = std::sqrt(x * x + y * y);
-		double vh = (-y * vx + x * vy) / dist;
-		double vv = ( x * vx + y * vy) / dist;
+		dist = std::sqrt(x * x + y * y);
+		vh = (-y * vx + x * vy) / dist;
+		vv = ( x * vx + y * vy) / dist;
 
-		stateVector[0] = dist;
-		stateVector[1] = vh;
-		stateVector[2] = vv;
-		stateVector[3] = state.mass / craft.mass;
+		stateVector[0] = dist * 1e-5;
+		stateVector[1] = (dist - body.radius) * 1e-3;
+		stateVector[2] = body.radius * 1e-5;
+		stateVector[3] = std::sqrt(body.grav_parameter / body.radius) * 1e-3;
+		stateVector[4] = body.grav_parameter / body.radius / body.radius;
+		stateVector[5] = vh * 1e-3;
+		stateVector[6] = vv * 1e-3;
+		stateVector[7] = state.mass / craft.mass;
 
-		int i = 6;
+		int i = 8;
 		for (auto const & iterator : engines) {
 			if (state.engines.count(iterator.second) > 0) {
 				stateVector[i] = state.engines.at(iterator.second) * iterator.second.mass / state.mass;
@@ -73,26 +87,12 @@ Result simulate(Body body, Craft craft, double alt, double randomness, NN estima
 			i++;
 		}
 
-		/*=== Calculate action ===*/
-		double value = estimator.evaluate(stateVector)[0];
-		for (int i = 0; i < 100; i++) {
-			double prevAh = stateVector[4];
-			double prevAv = stateVector[5];
-
-			stateVector[4] += 0.1 * normal(generator);
-			stateVector[5] += 0.1 * normal(generator);
-
-			double newValue = estimator.evaluate(stateVector)[0];
-
-			if (newValue <= value) {
-				stateVector[4] = prevAh;
-				stateVector[5] = prevAv;
-			}
-		}
-
 		/*=== Calculate acceleration ===*/
-		double ah = stateVector[4] + randomness * normal(generator); //Add variability for training purposes
-		double av = stateVector[5] + randomness * normal(generator);
+		std::vector<double> action = agent.evaluate(stateVector);
+		double rh = randomness * normal(generator), rv = randomness * normal(generator);
+
+		double ah = action[0] + rh; //Add variability for training purposes
+		double av = action[1] + rv;
 
 		double accel = std::sqrt(ah * ah + av * av);
 		if (accel > total_thrust / state.mass) {
@@ -137,7 +137,7 @@ Result simulate(Body body, Craft craft, double alt, double randomness, NN estima
 		periapsis = sma * (1 - eccentricity);
 
 		/*=== Collect data ===*/
-		stateValuePairs.push_back(std::pair<std::vector<double>, double>(stateVector, -state.mass / craft.mass));
+		stateValuePairs.push_back(SARGroup{stateVector, std::vector<double>{rh, rv}, 0});
 
 		/*=== Failure conditions ===*/
 		if ((dist < body.radius) || (eccentricity > 1.0) || (time > 10000)) {
@@ -148,12 +148,14 @@ Result simulate(Body body, Craft craft, double alt, double randomness, NN estima
 
 	std::size_t numStateValuePairs = stateValuePairs.size();
 	for (std::size_t i = 0; i < numStateValuePairs; i++) {
-		collector.stateValuePairs.push_back(
-			std::pair<std::vector<double>, double>(
-				stateVector, 
-				stateValuePairs[i].second + state.mass / craft.mass + (periapsis > body.radius ? 0 : 1e3 * (periapsis - body.radius) / body.radius)
-			)
-		);
+		double score = state.mass / craft.mass + (periapsis > body.radius ? 1e6 : vh + time);
+
+		if (std::isnan(score)) {
+			continue;
+		}
+
+		stateValuePairs[i].reward = score;
+		collector.stateValuePairs.push_back(stateValuePairs[i]);
 	}
 
 	Result out;
@@ -163,23 +165,17 @@ Result simulate(Body body, Craft craft, double alt, double randomness, NN estima
 	return out;
 }
 
-void train_nn(NN& estimator) {
-	for (int i = 0; i < 1000; i++) {
-		/*=== Random body / craft ===*/
+void train_nn(NN& estimator, NN& agent) {
+	estimator.log();
+
+	double maxReward = -1000;
+	for (int i = 0; i < 100000; i++) {
+		/*=== body / craft ===*/
 		Body body;
 
-		body.radius = 850000 * std::pow(uniform(generator), 2.0);
-		body.grav_parameter = std::abs(
-			body.radius * 
-			body.radius * 
-			(1 + 0.2 * normal(generator)) * 
-			((body.radius < 450000 ? 0.000009 : 0.000044) * (body.radius - 450000) + 4)
-		);
-
-		body.rotational_period = 150000 * std::pow(
-			std::abs(std::log(uniform(generator))), 
-			1.5
-		);
+		body.radius = 3e5;
+		body.grav_parameter = 3e5 * 3e5 * 0.275 * g0;
+		body.rotational_period = 105962.088893924;
 
 		//Filters
 		double surface_velocity = 2 * pi * body.radius / body.rotational_period;
@@ -191,15 +187,20 @@ void train_nn(NN& estimator) {
 		Craft craft;
 		craft.mass = 100000;
 
-		for (auto const & iterator : engines) {
+		std::map<Engine, double, std::greater<Engine> > craftEngines;
+		craftEngines[engines.at("Spark")] = 1;
+
+		craft.engines = craftEngines;
+
+		/*for (auto const & iterator : engines) {
 			if (uniform(generator) > 0.1) continue;
 
 			craft.engines[iterator.second] = std::pow(uniform(generator), 2) * craft.mass / iterator.second.mass;
-		}
+		}*/
 
 		/*=== Simulate ===*/
 		StateValueCollector collector;
-		simulate(body, craft, 10000 * uniform(generator), 0.1, estimator, collector);
+		simulate(body, craft, 5000, 1, agent, collector);
 
 		/*std::size_t numStateValuePairs = collector.stateValuePairs.size();
 		for (std::size_t j = 0; j < numStateValuePairs; j++) {
@@ -214,22 +215,49 @@ void train_nn(NN& estimator) {
 		std::size_t numStateValuePairs = collector.stateValuePairs.size();
 
 		/*=== Get loss ===*/
-		double totalLoss = 0;
+		double reward = 0;
 		for (std::size_t j = 0; j < numStateValuePairs; j++) {
-			double actual = estimator.evaluate(collector.stateValuePairs[j].first)[0];
+			double actual = estimator.evaluate(collector.stateValuePairs[j].state)[0];
 
-			std::cout << actual << " " << collector.stateValuePairs[j].second << "\n";
+			//if (j == 0) std::cout << actual << " " << collector.stateValuePairs[j].reward << "\n";
 
-			totalLoss += 0.5 * std::pow(actual - collector.stateValuePairs[j].second, 2.0);
+			reward = collector.stateValuePairs[j].reward;
+
+			if (reward > maxReward) {
+				maxReward = reward;
+			}
 		}
 
-		double averageLoss = totalLoss / numStateValuePairs;
-
-		std::cout << averageLoss << "\n";
+		//std::cout << reward << ", " << maxReward << " 1\n";
 
 		/*=== Train network ===*/
 		for (std::size_t j = 0; j < numStateValuePairs; j++) {
-			estimator.backpropagate(collector.stateValuePairs[j].first, std::vector<double>{collector.stateValuePairs[j].second});
+			SARGroup sartriad = collector.stateValuePairs[j];
+
+			estimator.backpropagate(sartriad.state, std::vector<double>{sartriad.reward}, 1e-1, 0.001);
+
+			double estimatedReward = estimator.evaluate(sartriad.state)[0];
+			double value = sartriad.reward - estimatedReward;
+
+			value *= 20;
+
+			double gx = value * sartriad.actionRandomness[0];
+			double gy = value * sartriad.actionRandomness[1];
+
+			std::vector<double> prevAction = agent.evaluate(sartriad.state);
+
+			agent.backpropagate_gradient(sartriad.state, std::vector<double>{gx, gy}, 1e-6, 0.00001);
+
+			std::vector<double> newAction = agent.evaluate(sartriad.state);
+
+			if (i % 100 == 0) {
+				std::cout << sartriad.actionRandomness[0] << " " << sartriad.actionRandomness[1] << " " << gx << " " << gy << " " << sartriad.reward << " " << estimatedReward << "\n";
+				std::cout << i << " Prev: ";
+				logDoubleVector(prevAction);
+				std::cout << "\nNew: ";
+				logDoubleVector(newAction);
+				std::cout << "\n\n";
+			}
 		}
 	}
 }
@@ -242,8 +270,10 @@ int main() {
 	craftEngines[engines.at("Spark")] = 1;
 
 	/*=== Initialize NN ===*/
-	std::vector<int> layerNeuronCounts = {6 + (int)engines.size(), 16, 16, 16, 1};
-	NN valueEstimator = get_random_nn(layerNeuronCounts, Activation::ACTIVATION_RELU);
+	std::vector<int> agentLayerNeuronCounts = {8 + (int)engines.size(), 16, 16, 2};
+	std::vector<int> estimatorLayerNeuronCounts = {8 + (int)engines.size(), 16, 16, 1};
+	NN agent = get_random_nn(agentLayerNeuronCounts, Activation::ACTIVATION_LOGISTIC);
+	NN valueEstimator = get_random_nn(estimatorLayerNeuronCounts, Activation::ACTIVATION_LOGISTIC);
 
 	/*=== Initialize craft ===*/
 	Craft craft;
@@ -252,5 +282,5 @@ int main() {
 	craft.engines = craftEngines;
 
 	/*=== Train NN ===*/
-	train_nn(valueEstimator);
+	train_nn(valueEstimator, agent);
 }
