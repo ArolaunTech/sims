@@ -41,6 +41,7 @@ A lot of these programs are unfinished and never will be completed.
  - ```kicks.py```: Optimizes periapsis kicks for closest encounter.
  - ```landingprofileopt.cpp```: Given fuel amounts in orbit, optimizes landing profile to use as little fuel as possible.
  - ```landingtests.py```: Simulates the fuel usage from different landing trajectories.
+ - ```landingtestsgeneral.py```: Simulates the fuel usage from different landing trajectories.
  - ```planesim.cpp```: Optimizes RAPIER-based ascent profiles to reach a given suborbital trajectory using minimal fuel. One of my first C++ programs so may contain bad practices.
  - ```prop.py```: (Unsuccessfully) calculates aspects of KSP helicopters.
  - ```rapiermaxspeed.py```: (Somewhat successfully) calculates parameters of RAPIER-based Kerbin SSTOs.
@@ -54,6 +55,7 @@ A lot of these programs are unfinished and never will be completed.
  - ```tylo_optimizer_test.py```: An example of how to use ```single_stage_simulation.py``` to optimize a Tylo lander.
  - ```utils.py```: A utils library for ```single_stage.py```.
  - ```vacuumoptimizer.cpp```: Optimizes single-stage vacuum landers for maximum fractional payload by changing engine count and throttle.
+ - ```veltest.py```: Optimizes landing trajectories to use as little fuel as possible.
 
 ### Minecraft simulations:
  - ```Wheat.py```: Finds optimal time to harvest a wheat farm. One of my first programs so isn't very good.

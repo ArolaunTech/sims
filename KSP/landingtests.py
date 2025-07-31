@@ -4,14 +4,14 @@ import random
 
 g0 = 9.80665
 
-planetG = 2.7
-planetR = 250000
-rotPeriod = 1210000
+planetG = 1.628
+planetR = 200000
+rotPeriod = 138984.376574476
 
-isp = 4200
+isp = 320
 veff = isp * g0
 
-landingAlt = 6750
+landingAlt = 5000
 
 timestep = 0.1
 
@@ -224,7 +224,7 @@ for i in range(particles):
 	print(bestScore)
 
 i = 0
-for i in range(1000):
+for i in range(0):
 	for j in range(particles):
 		vstarts[j] =\
 			0.9 * vstarts[j] +\
@@ -255,7 +255,7 @@ log = testConstHaccel1(accel, True, bestStart, bestHaccel)
 for elem in log:
 	print(elem)
 
-n = 1000
+n = 100
 tests, results = [], []
 for i in range(n):
 	test = 5 * i/n
@@ -281,6 +281,15 @@ plt.plot(
 	"rx", 
 	label="Const. Acceleration Landing"
 )
+
+"""
+plt.plot(
+	[2, 1.5, 1],
+	[0.355, 0.374, 0.572],
+	"ro",
+	label="Spring landing"
+)
+"""
 
 plt.xlim(0, 5)
 plt.ylim(0, 1)
