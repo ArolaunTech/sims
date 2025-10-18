@@ -267,7 +267,8 @@ for i in range(n):
 	tests.append(test)
 	results.append(1-mass)
 
-minUsed = 1 - math.exp(-2 * landingOrbVel/veff)
+dv = math.sqrt(planetSTDGP / planetR) - math.sqrt(2 * planetSTDGP * (1 / planetR - 1 / (planetR + landingAlt)) + rotVel * rotVel)
+minUsed = 1 - math.exp(-2 * dv/veff)
 print(minUsed)
 
 plt.plot(tests, results, label="Constant Altitude Landing")
@@ -282,14 +283,12 @@ plt.plot(
 	label="Const. Acceleration Landing"
 )
 
-"""
 plt.plot(
-	[2, 1.5, 1],
-	[0.355, 0.374, 0.572],
-	"ro",
+	[4, 3, 2, 1.75, 1.625, 1.5, 1.375, 1.25, 1.125, 1, 0.75, 0.5],
+	[0.29402, 0.2951, 0.31001, 0.32163, 0.33098, 0.34449, 0.36544, 0.39999, 0.45387, 0.51574, 0.63796, 0.75891],
+	"r-",
 	label="Spring landing"
 )
-"""
 
 plt.xlim(0, 5)
 plt.ylim(0, 1)

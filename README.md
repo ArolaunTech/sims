@@ -30,6 +30,7 @@ A lot of these programs are unfinished and never will be completed.
  - ```consts.h```: Some constants. Required by some of the C++ optimizers.
  - ```curves.h```: Defines some curves. Required by some of the C++ optimizers.
  - ```fuelopt.py```: Optimizes the distribution of fuel across rocket stages for maximum delta-v.
+ - ```fuelopt2.py```: Optimizes the distribution of fuel across rocket stages for minimum mass.
  - ```generallandingprofile.cpp```: (Tries to) find the optimal landing profile for a given craft to land on a given body.
  - ```graphtraverse.py```: Optimizes the location of a mothership in the Jool system for the most efficient Jool-5. (yes I know it's Elliptical Laythe and Tylo Orbit)
  - ```inclination.py```: Calculates the delta-v required to change the inclination of an orbit.
@@ -38,12 +39,14 @@ A lot of these programs are unfinished and never will be completed.
  - ```ion_landing.py```: Simulates the Constant Altitude and Constant Horizontal Acceleration landing profiles.
  - ```ion_maximizer.py```: Maximizes the thrust of ion engines undergoing EC starvation.
  - ```j5ssto.py```: Optimizes Jool-5 SSTO route for maximum fractional payload.
+ - ```jets.cpp```: Calculates payload fractions for different jets.
  - ```kicks.py```: Optimizes periapsis kicks for closest encounter.
  - ```landingprofileopt.cpp```: Given fuel amounts in orbit, optimizes landing profile to use as little fuel as possible.
  - ```landingtests.py```: Simulates the fuel usage from different landing trajectories.
  - ```landingtestsgeneral.py```: Simulates the fuel usage from different landing trajectories.
  - ```planesim.cpp```: Optimizes RAPIER-based ascent profiles to reach a given suborbital trajectory using minimal fuel. One of my first C++ programs so may contain bad practices.
  - ```prop.py```: (Unsuccessfully) calculates aspects of KSP helicopters.
+ - ```propwing2.py```: Calculates the optimal blade angles for prop-wing craft.
  - ```rapiermaxspeed.py```: (Somewhat successfully) calculates parameters of RAPIER-based Kerbin SSTOs.
  - ```relvelmagnifier.py```: Calculates gravity assist trajectories to save dV through orbit rotation shenanigans.
  - ```shift_assist.py```: Part of a multiple gravity assist planner.

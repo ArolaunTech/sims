@@ -7,7 +7,7 @@ import random
 import time
 from copy import deepcopy
 
-def simulate_spring_landing_with_craft(craft, planet_name, altitude, k1, k2, mid1, mid2, starting_altitude, logging=False):
+def simulate_spring_landing_with_craft(craft, planet_name, altitude, k1, k2, mid1, mid2, starting_altitude, logging=False, refuel=False):
 	planetRadius = utils.bodies[planet_name]["radius"]
 	planetGravParameter = utils.GRAV_CONSTANT * utils.bodies[planet_name]["mass"]
 	planetRotationalPeriod = utils.bodies[planet_name]["rotationalperiod"]
@@ -114,6 +114,9 @@ def simulate_spring_landing_with_craft(craft, planet_name, altitude, k1, k2, mid
 		print(f"\nSuccessfully landed, wet mass = {craft.wet_mass} kg")
 		print("Liftoff!\n")
 
+	if refuel:
+		craft.refuel()
+
 	# Successfully landed
 	x = planetRadius + altitude
 	y = 0
@@ -141,7 +144,7 @@ def simulate_spring_landing_with_craft(craft, planet_name, altitude, k1, k2, mid
 		vaccel = grav - vh * vh / dist
 		vaccel -= k2 * (dist - mid2 - planetRadius)
 
-		#print(accel, bestvaccelclamped, besthaccel, bestscore, bestthrottle)
+		#print(dist, vh, vv, vaccel)
 
 		craft.toggle_engines_by_vaccel(vaccel)
 
@@ -207,7 +210,7 @@ def simulate_spring_landing_with_craft(craft, planet_name, altitude, k1, k2, mid
 
 	return 6, craft.wet_mass, dist - planetRadius, vv, landingdist - planetRadius, landingvv, time, landingtime
 
-def simulate_landing_with_craft(craft, planet_name, altitude, logging = False):
+def simulate_landing_with_craft(craft, planet_name, altitude, logging = False, refuel = False):
 	r = utils.bodies[planet_name]["radius"] + altitude
 	ag = utils.GRAV_CONSTANT * utils.bodies[planet_name]["mass"] / (r * r)
 
@@ -322,6 +325,9 @@ def simulate_landing_with_craft(craft, planet_name, altitude, logging = False):
 		print(f"Total fuel mass: {total_fuel_mass}")
 		print("Landed!")
 
+	if refuel:
+		craft.refuel()
+
 	landing_time = iteration_count * tick_time
 	iteration_count = 0
 	if (logging):
@@ -415,7 +421,7 @@ def simulate_landing_with_craft(craft, planet_name, altitude, logging = False):
 	ascent_time = iteration_count * tick_time
 	return landing_time, ascent_time
 
-def optimize_spring_landing(craft, planet_name, altitude, logging = False):
+def optimize_spring_landing(craft, planet_name, altitude, logging = False, refuel = False):
 	landing_time, ascent_time = simulate_landing_with_craft(deepcopy(craft), planet_name, altitude)
 
 	# Initial guess for k parameters based on assumption that
@@ -444,7 +450,8 @@ def optimize_spring_landing(craft, planet_name, altitude, logging = False):
 			mid1, 
 			mid2, 
 			starting_altitude,
-			False
+			False,
+			refuel
 		)
 
 		accelmaxalt1 = (altitude - mid1) * k1
@@ -491,7 +498,8 @@ def optimize_spring_landing(craft, planet_name, altitude, logging = False):
 		mid1, 
 		mid2, 
 		starting_altitude,
-		logging
+		logging,
+		refuel
 	)
 
 def payload_capacity(craft):
@@ -510,15 +518,15 @@ flight_profile is a list of landings and vacuum burns.
 Landings are of the format 'name altitude' and vacuum burns are of the format 'dv'
 
 """
-def simulate_flight_profile(craft, flight_profile, log=False):
+def simulate_flight_profile(craft, flight_profile, log=False, refuel = False):
 	for item in flight_profile:
 		if " " in item:
 			# This is a landing
 			name = item.split(" ")[0]
 			altitude = float(item.split(" ")[1])
 			if name.lower() in bodies:
-				#simulate_landing_with_craft(craft, name.lower(), altitude, logging=log)
-				optimize_spring_landing(craft, name.lower(), altitude, logging=log)
+				#simulate_landing_with_craft(craft, name.lower(), altitude, logging=log, refuel = refuel)
+				optimize_spring_landing(craft, name.lower(), altitude, logging=log, refuel = refuel)
 			elif name == "LiquidFuel" or name == "LFOx" or name == "Monopropellant" or name == "XenonGas":
 				craft.use_fuel(name, altitude * craft.wet_mass)
 			else:
@@ -542,7 +550,7 @@ min_engine_count = {
 	"Dawn": 1,
 }
 
-def optimize_engine_layout(engine_count = dict(), min_engine_count = dict(), flight_profile = [], output_ascent_profiles = True, allow_fractional = False, allow_new_engines = True, mass_in_orbit = 0):
+def optimize_engine_layout(engine_count = dict(), min_engine_count = dict(), flight_profile = [], output_ascent_profiles = True, allow_fractional = False, allow_new_engines = True, mass_in_orbit = 0, refuel = False):
 	improved_last_iteration = True
 	best_engine_count = engine_count.copy()
 	
@@ -552,7 +560,7 @@ def optimize_engine_layout(engine_count = dict(), min_engine_count = dict(), fli
 	craft = single_stage.SingleStageCraft()
 	fuel_levels = dict()
 	craft.manual_instantiate(engine_count, fuel_levels, mass_in_orbit)
-	simulate_flight_profile(craft, flight_profile, output_ascent_profiles)
+	simulate_flight_profile(craft, flight_profile, output_ascent_profiles, refuel)
 	max_payload_remaining = (payload_capacity(craft) - 6000)/best_engine_count["Dawn"]
 	print(f"Reference payload capacity: {max_payload_remaining}")
 	print(f"Reference payload fraction: {max_payload_remaining / mass_in_orbit}")
@@ -601,7 +609,7 @@ def optimize_engine_layout(engine_count = dict(), min_engine_count = dict(), fli
 			test_craft.manual_instantiate(test_engine_count, fuel_levels, mass_in_orbit)
 			sim_start = time.time()
 
-			simulate_flight_profile(test_craft, flight_profile, False)
+			simulate_flight_profile(test_craft, flight_profile, False, refuel)
 
 			sim_end = time.time()
 			simulation_time += sim_end - sim_start
@@ -641,7 +649,7 @@ def optimize_engine_layout(engine_count = dict(), min_engine_count = dict(), fli
 			test_craft2.manual_instantiate(test_engine_count, fuel_levels, mass_in_orbit)
 			sim_start = time.time()
 
-			simulate_flight_profile(test_craft2, flight_profile, False)
+			simulate_flight_profile(test_craft2, flight_profile, False, refuel)
 
 			sim_end = time.time()
 			simulation_time += sim_end - sim_start
@@ -670,7 +678,7 @@ def optimize_engine_layout(engine_count = dict(), min_engine_count = dict(), fli
 	craft = single_stage.SingleStageCraft()
 	craft.manual_instantiate(best_engine_count, dict(), mass_in_orbit)
 	
-	simulate_flight_profile(craft, flight_profile, output_ascent_profiles)
+	simulate_flight_profile(craft, flight_profile, output_ascent_profiles, refuel)
 
 	print(f"Total time: {end_time - start_time}")
 	print(f"Simulation time: {simulation_time}")

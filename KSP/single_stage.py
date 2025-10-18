@@ -156,7 +156,7 @@ class SingleStageCraft:
 
 		# Some engines off
 		numgroups = len(ispList)
-		for i in range(numgroups - 1, -1, -1):
+		for i in range(numgroups - 1, 0, -1):
 			engine_name = ispList[i][1]
 			self.set_throttle_by_name(engine_name, 0)
 
@@ -206,6 +206,8 @@ class SingleStageCraft:
 			if accel < abs(vaccel):
 				break
 
+		#print(vaccel, bestthrottle)
+
 		self.toggle_engines_by_total_thrust(bestthrottle)
 
 	def turn_engines_off(self):
@@ -251,9 +253,19 @@ class SingleStageCraft:
 
 		#print(self.wet_mass, new_mass, (self.wet_mass - new_mass)/fuel_masses[best_fuel], self.fuel_consumption)
 
-		self.fuel_used[best_fuel] += (self.wet_mass - new_mass)/fuel_masses[best_fuel]
+		self.fuel_used[best_fuel] += (self.wet_mass - new_mass) / fuel_masses[best_fuel]
 		self.wet_mass = new_mass
 
 	def use_fuel(self, fueltype, fuel):
-		self.fuel_used[fueltype] += fuel
+		self.fuel_used[fueltype] += fuel / fuel_masses[fueltype]
 		self.wet_mass -= fuel
+
+	def refuel(self):
+		#print(self.wet_mass, self.fuel_used)
+
+		self.wet_mass += self.fuel_used["LiquidFuel"] * fuel_masses["LiquidFuel"] + self.fuel_used["LFOx"] * fuel_masses["LFOx"] + self.fuel_used["Monopropellant"] * fuel_masses["Monopropellant"]
+		self.fuel_used["LiquidFuel"] = 0
+		self.fuel_used["LFOx"] = 0
+		self.fuel_used["Monopropellant"] = 0
+
+		#print(self.wet_mass, self.fuel_used)
