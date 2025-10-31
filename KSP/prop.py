@@ -215,15 +215,16 @@ def test(alt, sundot, vy, r, va, aoa):
 	fy = 0.5 * atmDensity * v * v * bladeArea * (36 * cL * ly + 15 * cD * dy)
 
 	resistance = -fx * r
+	resistance *= np.cos(va / 50) # DUMP correction
 	return resistance, fy
 
 def findva(alt, sundot, vy, r, aoa):
-	resistance, fy = test(alt, sundot, vy, r, 50, aoa)
+	resistance, fy = test(alt, sundot, vy, r, 460 * np.pi / 30, aoa)
 	if resistance <= torque:
-		return 50
+		return 460 * np.pi / 30
 
 	lo = 0
-	hi = 50
+	hi = 460 * np.pi / 30
 	while (hi - lo) > 1e-3:
 		middle = (lo + hi)/2
 		resistance, fy = test(alt, sundot, vy, r, middle, aoa)
@@ -275,7 +276,7 @@ lift = 500 * 9.81 #Weight (N)
 torque = 15000 #Ns
 bladeArea = 0.24
 
-rs = np.linspace(0, 10, num=101)
+rs = np.linspace(0, 20, num=101)
 aoas = np.linspace(90, 0, num=91)
 rs, aoas = np.meshgrid(rs, aoas)
 alt = np.vectorize(findmaxalt)(0.707, rs, aoas * np.pi/180)
@@ -291,7 +292,7 @@ for i in range(len(alt)):
 plt.title("Max. alt. for 500 kg prop craft with 15 kNm torque")
 plt.xlabel("Prop radius (m)")
 plt.ylabel("Angle of attack (degrees)")
-plt.imshow(alt, extent=(0, 10, 0, 90), aspect=1/9, cmap="inferno")
+plt.imshow(alt, extent=(0, 20, 0, 90), aspect=2/9, cmap="inferno")
 plt.plot(rs[maxi][maxj], aoas[maxi][maxj], 'kx')
 plt.annotate("Best alt: " + str(int(maxalt)) + "m", (rs[maxi][maxj], aoas[maxi][maxj]))
 plt.colorbar()
