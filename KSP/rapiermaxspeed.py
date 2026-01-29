@@ -305,26 +305,27 @@ def simulate(initmass):
 
 	return mass, time
 
-xs = []
-ys = []
-ts = []
-ds = []
-for initmass in np.linspace(10000, 120000, num=200):
-	finalmass, finaltime = simulate(initmass)
-	finalmass *= np.exp(-45/800/9.80665)
-	print(initmass, finalmass, finaltime, 1000*finalmass/(0.1 * (initmass - finalmass) + 2000 + (initmass)/70), (0.1 * (initmass - finalmass) + 2000 + (initmass)/70))
+if __name__ == '__main__':
+	xs = []
+	ys = []
+	ts = []
+	ds = []
+	for initmass in np.linspace(10000, 120000, num=200):
+		finalmass, finaltime = simulate(initmass)
+		finalmass *= np.exp(-45/800/9.80665)
+		print(initmass, finalmass, finaltime, 1000*finalmass/(0.1 * (initmass - finalmass) + 2000 + (initmass)/70), (0.1 * (initmass - finalmass) + 2000 + (initmass)/70))
 
-	xs.append(initmass)
-	ys.append(finalmass)
-	ts.append(finaltime)
-	ds.append(1000*finalmass/(0.1 * (initmass - finalmass) + 2000 + (initmass)/70))
+		xs.append(initmass)
+		ys.append(finalmass)
+		ts.append(finaltime)
+		ds.append(1000*finalmass/(0.1 * (initmass - finalmass) + 2000 + (initmass)/70))
 
-plt.plot(xs, ys)
-#plt.plot(xs, ts)
-plt.plot(xs, ds)
-plt.gca().set_xlim(10000, 150000)
-plt.gca().set_ylim(0, 70000)
-plt.title("Maximum mass of a RAPIER-NERV SSTO after reaching 1800 m/s")
-plt.xlabel("Mass per RAPIER on takeoff")
-plt.ylabel("Mass per RAPIER after reaching 1800 m/s")
-plt.show()
+	plt.plot(xs, ys)
+	#plt.plot(xs, ts)
+	plt.plot(xs, ds)
+	plt.gca().set_xlim(10000, 150000)
+	plt.gca().set_ylim(0, 70000)
+	plt.title("Maximum mass of a RAPIER-NERV SSTO after reaching 1800 m/s")
+	plt.xlabel("Mass per RAPIER on takeoff")
+	plt.ylabel("Mass per RAPIER after reaching 1800 m/s")
+	plt.show()

@@ -33,6 +33,7 @@ A lot of these programs are unfinished and never will be completed.
  - ```fuelopt2.py```: Optimizes the distribution of fuel across rocket stages for minimum mass.
  - ```generallandingprofile.cpp```: (Tries to) find the optimal landing profile for a given craft to land on a given body.
  - ```graphtraverse.py```: Optimizes the location of a mothership in the Jool system for the most efficient Jool-5. (yes I know it's Elliptical Laythe and Tylo Orbit)
+ - ```highvveltest.py```: Simulates an ascent involving lift, drag, thrust, and gravity acting at arbitrary angles.
  - ```inclination.py```: Calculates the delta-v required to change the inclination of an orbit.
  - ```ion.go```: Optimizes a Moho SSTO for minimum mass.
  - ```ion_engine.py```: Optimizes ion chairs for minimum mass while still being able to go to Mun.
