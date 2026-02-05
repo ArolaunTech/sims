@@ -1,6 +1,7 @@
 import math
 import matplotlib.pyplot as plt
 import random
+import numpy as np
 
 g0 = 9.80665
 
@@ -11,7 +12,7 @@ rotPeriod = 138984.376574476
 isp = 320
 veff = isp * g0
 
-landingAlt = 5000
+landingAlt = 10000
 
 timestep = 0.1
 
@@ -28,7 +29,7 @@ def testConstAltitude(accel, log):
 
 	flightLog = []
 
-	while vel > rotVel:
+	"""while vel > rotVel:
 		grav = landingGrav - vel * vel/(planetR + landingAlt)
 		accel = thrust/mass
 
@@ -41,7 +42,7 @@ def testConstAltitude(accel, log):
 		time += timestep
 
 		if log:
-			flightLog.append((time, vel, mass))
+			flightLog.append((time, vel, mass))"""
 
 	vel = rotVel
 
@@ -259,7 +260,7 @@ n = 100
 tests, results = [], []
 for i in range(n):
 	test = 5 * i/n
-	if test < 0.1:
+	if test < 1.628:
 		continue
 	mass = testConstAltitude(test, True)[-1][2]
 	print(str(test)+", "+str(mass))
@@ -267,8 +268,8 @@ for i in range(n):
 	tests.append(test)
 	results.append(1-mass)
 
-dv = math.sqrt(planetSTDGP / planetR) - math.sqrt(2 * planetSTDGP * (1 / planetR - 1 / (planetR + landingAlt)) + rotVel * rotVel)
-minUsed = 1 - math.exp(-2 * dv/veff)
+dv = math.sqrt(planetSTDGP / (planetR + landingAlt))
+minUsed = 1 - math.exp(-1 * dv/veff)
 print(minUsed)
 
 plt.plot(tests, results, label="Constant Altitude Landing")
@@ -276,7 +277,7 @@ plt.xlabel("Initial acceleration (m/s/s)")
 plt.ylabel("Fraction of craft used as fuel")
 plt.title("Fuel used by Mun landers with 320s Isp")
 
-plt.plot(
+"""plt.plot(
 	[2, 1.75, 1.5, 1.25], 
 	[0.329368336792, 0.343041615525, 0.363318424963, 0.408181694272], 
 	"rx", 
@@ -288,10 +289,89 @@ plt.plot(
 	[0.29402, 0.2951, 0.31001, 0.32163, 0.33098, 0.34449, 0.36544, 0.39999, 0.45387, 0.51574, 0.63796, 0.75891],
 	"r-",
 	label="Spring landing"
+)"""
+
+plt.plot(
+	np.arange(1.7, 5.1, step=0.1),
+	[
+		0.2571, # 1.7
+		0.2416, # 1.8
+		0.2299, # 1.9
+		0.2208, # 2.0
+		0.2133, # 2.1
+		0.2073, # 2.2
+		0.2024, # 2.3
+		0.1982, # 2.4
+		0.1946, # 2.5
+		0.1915, # 2.6
+		0.1889, # 2.7
+		0.1866, # 2.8
+		0.1846, # 2.9
+		0.1828, # 3.0
+		0.1812, # 3.1
+		0.1798, # 3.2
+		0.1785, # 3.3
+		0.1774, # 3.4
+		0.1764, # 3.5
+		0.1755, # 3.6
+		0.1746, # 3.7
+		0.1738, # 3.8
+		0.1731, # 3.9
+		0.1724, # 4.0
+		0.1719, # 4.1
+		0.1713, # 4.2
+		0.1708, # 4.3
+		0.1703, # 4.4
+		0.1699, # 4.5
+		0.1694, # 4.6
+		0.1690, # 4.7
+		0.1687, # 4.8
+		0.1684, # 4.9
+		0.1680, # 5.0
+	],
+	"k--",
+	label="Simple gravity turn"
 )
 
-plt.xlim(0, 5)
-plt.ylim(0, 1)
+plt.plot(
+	np.arange(1.7, 4.6, step=0.1),
+	[
+		0.1962, # 1.7
+		0.1904, # 1.8
+		0.1861, # 1.9
+		0.1823, # 2.0
+		0.1795, # 2.1
+		0.1774, # 2.2
+		0.1758, # 2.3
+		0.1744, # 2.4
+		0.1731, # 2.5
+		0.1721, # 2.6
+		0.1712, # 2.7
+		0.1702, # 2.8
+		0.1694, # 2.9
+		0.1690, # 3.0
+		0.1683, # 3.1
+		0.1678, # 3.2
+		0.1674, # 3.3
+		0.1669, # 3.4
+		0.1666, # 3.5
+		0.1663, # 3.6
+		0.1660, # 3.7
+		0.1656, # 3.8
+		0.1654, # 3.9
+		0.1651, # 4.0
+		0.1650, # 4.1
+		0.1647, # 4.2
+		0.1645, # 4.3
+		0.1644, # 4.4
+		0.1641, # 4.5
+	],
+	"r-",
+	label="Optimized landing"
+)
+
+plt.xlim(1.628, 5)
+plt.ylim(0.15, 0.26)
 
 plt.hlines(minUsed, 0, 5, colors="black", linestyles="dashed", label="Theoretical minimum")
 plt.legend()

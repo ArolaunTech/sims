@@ -79,12 +79,10 @@ class SingleStageCraft:
 	def toggle_engines_by_isp(self, target_isp):
 		for name in self.engines:
 			engine_info = utils.engine_info[name]
-			if engine_info[0] == target_isp:
-				engineOn = self.throttles[name] > 0
-				if not engineOn:
-					self.set_throttle_by_name(name, 1)
-				else:
-					self.set_throttle_by_name(name, 0)
+			if engine_info[0] > target_isp:
+				self.set_throttle_by_name(name, 1)
+			else:
+				self.set_throttle_by_name(name, 0)
 
 	def toggle_engines_by_total_thrust(self, total_thrust):
 		# Build Isp list

@@ -28,11 +28,10 @@ flight_profile = [
 	"270",
 
 	"800",
-	"Tylo 10000",
+	"Tylo 13000",
 	"800",
 ]
 
-"""
 sim.optimize_engine_layout(
 	engine_count, 
 	min_engine_count, 
@@ -42,14 +41,3 @@ sim.optimize_engine_layout(
 	mass_in_orbit = 105000,
     refuel = True
 )
-"""
-
-craft = single_stage.SingleStageCraft()
-
-craft.wet_mass = 100000
-craft.engines = {"Spark": 5 * 1.625}
-for engine in craft.engines:
-	craft.throttles[engine] = 0
-craft.total_thrust = 0
-
-sim.optimize_spring_landing(craft, "mun", 5000, logging = True, refuel = False)

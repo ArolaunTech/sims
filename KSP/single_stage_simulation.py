@@ -7,209 +7,6 @@ import random
 import time
 from copy import deepcopy
 
-def simulate_spring_landing_with_craft(craft, planet_name, altitude, k1, k2, mid1, mid2, starting_altitude, logging=False, refuel=False):
-	planetRadius = utils.bodies[planet_name]["radius"]
-	planetGravParameter = utils.GRAV_CONSTANT * utils.bodies[planet_name]["mass"]
-	planetRotationalPeriod = utils.bodies[planet_name]["rotationalperiod"]
-
-	rotvel = 2 * math.pi * (planetRadius + altitude) / planetRotationalPeriod
-
-	lithobrake_speed = 60
-
-	numEngines = len(craft.engines)
-
-	# State
-	x = planetRadius + starting_altitude
-	y = 0
-	vx = 0
-	vy = math.sqrt(planetGravParameter / x)
-	time = 0
-	timesteps = 0
-
-	vh, vv = vy, vx
-	sma, eccentricity, periapsis = 0, 0, 0
-	dist = 0
-
-	landingdist, landingvv = 0, 0
-
-	# Simulation
-	timestep = 0.1
-
-	# Logging
-	timestepsPerLog = round(10 / timestep)
-
-	while vh > rotvel + lithobrake_speed:
-		# Calculations
-		dist = math.sqrt(x * x + y * y)
-
-		vh = (-y * vx + x * vy) / dist
-		vv = (x * vx + y * vy) / dist
-
-		# Gravity
-		grav = planetGravParameter / dist / dist
-		gx = -x * grav / dist
-		gy = -y * grav / dist
-
-		# Thrust
-		vaccel = grav - vh * vh / dist
-		vaccel -= k1 * (dist - mid1 - planetRadius)
-
-		craft.toggle_engines_by_vaccel(vaccel)
-
-		accel = craft.total_thrust / craft.wet_mass
-		bestvaccelclamped = max(min(vaccel, accel), -accel)
-		besthaccel = math.sqrt(accel * accel - bestvaccelclamped * bestvaccelclamped)
-
-		ax = (y * besthaccel + x * bestvaccelclamped) / dist
-		ay = (-x * besthaccel + y * bestvaccelclamped) / dist
-
-		# Integration
-		if timesteps % timestepsPerLog == 0 and logging:
-			print(f"T = {round(time, 1)}s:", end="\t")
-			print(f"Alt: {round(dist - planetRadius, 2)}m", end="\t")
-			print(f"Hvel: {round(vh)} m/s", end="\t")
-			print(f"Vvel: {round(vv, 1)} m/s")
-
-		vx += (ax + gx) * timestep
-		vy += (ay + gy) * timestep
-		x += vx * timestep
-		y += vy * timestep
-		time += timestep
-		timesteps += 1
-
-		craft.simulate_burn(timestep)
-
-		# End conditions
-		landingdist = dist
-		landingvv = vv
-
-		if craft.wet_mass < 0:
-			return 0, -vh, dist - planetRadius, vv, landingdist - planetRadius, landingvv, time, time
-		if dist < planetRadius:
-			return 1, -vh, dist - planetRadius, vv, landingdist - planetRadius, landingvv, time, time
-
-	if logging:
-		print(f"T = {round(time, 1)}s:", end="\t")
-		print(f"Alt: {round(dist - planetRadius, 2)}m", end="\t")
-		print(f"Hvel: {round(vh)} m/s", end="\t")
-		print(f"Vvel: {round(vv, 1)} m/s")
-
-	error = abs(dist - altitude - planetRadius)
-	if error > 1:
-		if dist - planetRadius < altitude:
-			return 2, craft.wet_mass, dist - planetRadius, vv, landingdist - planetRadius, landingvv, time, time
-		return 3, craft.wet_mass, dist - planetRadius, vv, landingdist - planetRadius, landingvv, time, time
-
-	if logging:
-		print("\nFuel used per type:")
-	
-		total_fuel_mass = 0
-		for fuel_type, fuel_level in craft.fuel_used.items():
-			mass = fuel_level * utils.fuel_masses[fuel_type]
-			
-			print(f"{fuel_type}\t{fuel_level}\tMass: {mass}")
-			total_fuel_mass += mass
-		
-		print(f"Total fuel mass: {total_fuel_mass}")
-		print(f"\nSuccessfully landed, wet mass = {craft.wet_mass} kg")
-		print("Liftoff!\n")
-
-	if refuel:
-		craft.refuel()
-
-	# Successfully landed
-	x = planetRadius + altitude
-	y = 0
-	vx = 0
-	vy = rotvel
-
-	landingtime = time
-
-	time = 0
-	timesteps = 0
-
-	while periapsis < planetRadius:
-		# Calculations
-		dist = math.sqrt(x * x + y * y)
-
-		vh = (-y * vx + x * vy) / dist
-		vv = (x * vx + y * vy) / dist
-
-		# Gravity
-		grav = planetGravParameter / dist / dist
-		gx = -x * grav / dist
-		gy = -y * grav / dist
-
-		# Thrust
-		vaccel = grav - vh * vh / dist
-		vaccel -= k2 * (dist - mid2 - planetRadius)
-
-		#print(dist, vh, vv, vaccel)
-
-		craft.toggle_engines_by_vaccel(vaccel)
-
-		accel = craft.total_thrust / craft.wet_mass
-		bestvaccelclamped = max(min(vaccel, accel), -accel)
-		besthaccel = math.sqrt(accel * accel - bestvaccelclamped * bestvaccelclamped)
-
-		ax = (-y * besthaccel + x * bestvaccelclamped) / dist
-		ay = (x * besthaccel + y * bestvaccelclamped) / dist
-
-		# Integration
-		if timesteps % timestepsPerLog == 0 and logging:
-			print(f"T = {round(time, 1)}s:", end="\t")
-			print(f"Alt: {round(dist - planetRadius, 2)}m", end="\t")
-			print(f"Hvel: {round(vh)} m/s", end="\t")
-			print(f"Vvel: {round(vv, 1)} m/s")
-			#print(sum(craft.throttles.values()))
-
-		vx += (ax + gx) * timestep
-		vy += (ay + gy) * timestep
-		x += vx * timestep
-		y += vy * timestep
-		time += timestep
-		timesteps += 1
-
-		craft.simulate_burn(timestep)
-
-		# End conditions
-		dist = math.sqrt(x * x + y * y)
-		vh = (-y * vx + x * vy) / dist
-		sma = 1 / (2 / dist - (vx * vx + vy * vy) / planetGravParameter)
-
-		if (dist * vh) ** 2 > (sma * planetGravParameter):
-			eccentricity = 0
-		else:
-			eccentricity = math.sqrt(1 - (dist * vh) ** 2 / (sma * planetGravParameter))
-		
-		periapsis = sma * (1 - eccentricity)
-
-		if craft.wet_mass < 0:
-			return 4, vh, dist - planetRadius, vv, landingdist - planetRadius, landingvv, time, landingtime
-		if dist < planetRadius:
-			return 5, vh, dist - planetRadius, vv, landingdist - planetRadius, landingvv, time, landingtime
-
-	if logging:
-		print(f"T = {round(time, 1)}s:", end="\t")
-		print(f"Alt: {round(dist - planetRadius, 2)}m", end="\t")
-		print(f"Hvel: {round(vh)} m/s", end="\t")
-		print(f"Vvel: {round(vv, 1)} m/s")
-
-	if logging:
-		print("\nFuel used per type:")
-	
-		total_fuel_mass = 0
-		for fuel_type, fuel_level in craft.fuel_used.items():
-			mass = fuel_level * utils.fuel_masses[fuel_type]
-			
-			print(f"{fuel_type}\t{fuel_level}\tMass: {mass}")
-			total_fuel_mass += mass
-		
-		print(f"Total fuel mass: {total_fuel_mass}")
-		print(f"\nSuccessfully back in orbit, wet mass = {craft.wet_mass} kg\n")
-
-	return 6, craft.wet_mass, dist - planetRadius, vv, landingdist - planetRadius, landingvv, time, landingtime
-
 def simulate_landing_with_craft(craft, planet_name, altitude, logging = False, refuel = False):
 	r = utils.bodies[planet_name]["radius"] + altitude
 	ag = utils.GRAV_CONSTANT * utils.bodies[planet_name]["mass"] / (r * r)
@@ -421,86 +218,119 @@ def simulate_landing_with_craft(craft, planet_name, altitude, logging = False, r
 	ascent_time = iteration_count * tick_time
 	return landing_time, ascent_time
 
-def optimize_spring_landing(craft, planet_name, altitude, logging = False, refuel = False):
-	landing_time, ascent_time = simulate_landing_with_craft(deepcopy(craft), planet_name, altitude)
+"""
+def simulate_primer_landing(craft, costates, planet_name, altitude, logging=False, refuel=False):
+	# simulate_landing_with_craft doesn't take into account EC consumption so I won't take
+	# it into account here
+	r = utils.bodies[planet_name]["radius"] + altitude
+	mu = utils.GRAV_CONSTANT * utils.bodies[planet_name]["mass"]
 
-	# Initial guess for k parameters based on assumption that
-	# vertical motion is harmonic
-	k1 = (math.pi / landing_time) ** 2
-	k2 = (math.pi / ascent_time) ** 2
+	list_of_isp = []
+	for engine, count in craft.engines.items():
+		if count == 0:
+			continue
+		isp = utils.engine_info[engine][0]
+		list_of_isp.append((isp, engine))
+	list_of_isp.sort(reverse=True)
+	numengines = 0
 
-	mid1 = 0.5 * altitude
-	mid2 = 0.5 * altitude
+	x = [0, r, math.sqrt(mu / r), 0, craft.wet_mass]
+	c = deepcopy(costates)
 
-	starting_altitude = 10
-	final_altitude = 50
+	dt = 0.5
+	g0 = 9.81
 
-	# Iteratively improve guesses for k1, mid1, k2, and mid2
-	# The convergence is very rapid so 10 iterations is more than enough
-	# Feel free to reduce this number to save computation time
-	iterations = 0
-	finished = False
-	while iterations < 100 and not finished:
-		code, score, alt, vv, landalt, landvv, time2, time1 = simulate_spring_landing_with_craft(
-			deepcopy(craft), 
-			planet_name, 
-			altitude, 
-			k1, 
-			k2, 
-			mid1, 
-			mid2, 
-			starting_altitude,
-			False,
-			refuel
-		)
+	craft.turn_engines_off()
 
-		accelmaxalt1 = (altitude - mid1) * k1
-		timediff = landvv / accelmaxalt1
-		maxalt = math.sqrt((landalt - mid1) ** 2 + landvv ** 2 / k1) + mid1
+	for i in range(100000):
+		dist = math.sqrt(x[0] * x[0] + x[1] * x[1])
+		grav = mu / dist / dist
+		gx = -x[0] * grav / dist
+		gy = -x[1] * grav / dist
 
-		#print(maxalt)
+		dxdt = [x[2], x[3], gx, gy, 0]
 
-		mid1 += max(-100, min(100, 0.5 * (altitude - maxalt)))
-		k1 = min((math.pi / (math.pi / math.sqrt(k1) - timediff)) ** 2, 2 * k1)
+		dgxdx = mu * (2 * x[0] * x[0] - x[1] * x[1]) / dist ** 5
+		dgxdy = 3 * mu * x[0] * x[1] / dist ** 5
+		dgydx = dgxdy
+		dgydy = mu * (2 * x[1] * x[1] - x[0] * x[0]) / dist ** 5
 
-		k1finalest = (math.pi / time1) ** 2
+		mineffisp = c[4] * x[4] / math.sqrt(c[2] * c[2] + c[3] * c[3]) / g0
+		craft.toggle_engines_by_isp(mineffisp)
 
-		if math.sqrt(k1 / k1finalest) > 1.5:
-			k1 = k1finalest
+		T = craft.total_thrust
+		# D should remain unchanged at engine switches I think
+		D = -math.sqrt(c[2] * c[2] + c[3] * c[3]) * T / x[4] / x[4]
 
-		if code > 3:
-			accelminalt2 = (final_altitude - mid2) * k2
-			timediff = vv / accelminalt2
-			minalt = -math.sqrt((alt - mid2) ** 2 + vv ** 2 / k2) + mid2
+		dcdt = [-(dgxdx * c[2] + dgxdy * c[3]), -(dgydx * c[2] + dgydy * c[3]), -c[0], -c[1], D]
 
-			#print(minalt)
+		accel = T / x[4]
+		dxdt[2] += accel * c[2] / math.sqrt(c[2] * c[2] + c[3] * c[3])
+		dxdt[3] += accel * c[3] / math.sqrt(c[2] * c[2] + c[3] * c[3])
 
-			mid2 += max(-100, min(100, 0.5 * (final_altitude - minalt)))
-			k2 = min((math.pi / (math.pi / math.sqrt(k2) - timediff)) ** 2, 2 * k2)
+		for j in range(5):
+			x[j] += dxdt[j] * dt
+			c[j] += dcdt[j] * dt
 
-			k2finalest = (math.pi / time2) ** 2
+		craft.simulate_burn(dt)
+		x[4] = craft.wet_mass
 
-			if math.sqrt(k2 / k2finalest) > 1.5:
-				k2 = k2finalest
+		a = 1 / (2 / math.sqrt(x[0] * x[0] + x[1] * x[1]) - (x[2] * x[2] + x[3] * x[3]) / mu)
+		h = x[1] * x[2] - x[0] * x[3]
 
-		#print(code, score, alt, vv, landalt, landvv)
-		#print(k1, k2, mid1, mid2)
+		e = math.sqrt(max(0, 1 - h * h / mu / a))
 
-		finished = (code == 6) and (abs(vv) < 1) and (abs(landvv) < 1) and (abs(alt - final_altitude) < 1)
-		iterations += 1
+		vh = h / math.sqrt(x[0] * x[0] + x[1] * x[1])
+		vv = (x[0] * x[2] + x[1] * x[3]) / math.sqrt(x[0] * x[0] + x[1] * x[1])
 
-	simulate_spring_landing_with_craft(
-		craft, 
-		planet_name, 
-		altitude, 
-		k1, 
-		k2, 
-		mid1, 
-		mid2, 
-		starting_altitude,
-		logging,
-		refuel
-	)
+		if a < 0:
+			return False, 0
+		if dist < utils.bodies[planet_name]["radius"]:
+			return False, 0
+		if h < 0:
+			return True, craft.wet_mass - 100 * abs(vv) - 100 * abs(dist - r)
+	return False, 0
+
+def optimize_primer_landing(craft, planet_name, altitude, logging=False, refuel=False):
+	ostates = [0, 0, 0, 0, 1]
+	oscore = 0
+	for k in range(10):
+		bresult = False
+		bscore = 0
+		bstates = []
+		while not bresult:
+			bstates = [random.gauss(sigma=0.02), random.gauss(sigma=0.02), random.gauss(sigma=2), random.gauss(sigma=2), 1]
+
+			for j in range(4):
+				bstates[j] += ostates[j]
+
+			bresult, bscore = simulate_primer_landing(deepcopy(craft), bstates, planet_name, altitude, logging=False, refuel=False)
+
+		for i in range(500):
+			nstates = deepcopy(bstates)
+
+			for j in range(2):
+				nstates[j] += random.gauss(sigma=0.0002)
+				nstates[j+2] += random.gauss(sigma=0.2)
+
+			if random.random() < 0.1:
+				nstates = [random.gauss(sigma=0.02), random.gauss(sigma=0.02), random.gauss(sigma=2), random.gauss(sigma=2), 1]
+
+			nresult, nscore = simulate_primer_landing(deepcopy(craft), nstates, planet_name, altitude, logging=False, refuel=False)
+
+			if not nresult:
+				continue
+			if nscore > bscore:
+				bstates = deepcopy(nstates)
+				bscore = nscore
+			if nscore > oscore:
+				ostates = deepcopy(nstates)
+				oscore = nscore
+
+		print(ostates, oscore)
+
+	print(ostates, oscore)
+"""
 
 def payload_capacity(craft):
 	# Mass - total engine mass - total (used) fuel tank mass
@@ -525,8 +355,8 @@ def simulate_flight_profile(craft, flight_profile, log=False, refuel = False):
 			name = item.split(" ")[0]
 			altitude = float(item.split(" ")[1])
 			if name.lower() in bodies:
-				#simulate_landing_with_craft(craft, name.lower(), altitude, logging=log, refuel = refuel)
-				optimize_spring_landing(craft, name.lower(), altitude, logging=log, refuel = refuel)
+				simulate_landing_with_craft(craft, name.lower(), altitude, logging=log, refuel = refuel)
+				#print(optimize_primer_landing(craft, name.lower(), altitude, logging=log, refuel=refuel))
 			elif name == "LiquidFuel" or name == "LFOx" or name == "Monopropellant" or name == "XenonGas":
 				craft.use_fuel(name, altitude * craft.wet_mass)
 			else:

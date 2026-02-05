@@ -46,6 +46,8 @@ A lot of these programs are unfinished and never will be completed.
  - ```landingtests.py```: Simulates the fuel usage from different landing trajectories.
  - ```landingtestsgeneral.py```: Simulates the fuel usage from different landing trajectories.
  - ```planesim.cpp```: Optimizes RAPIER-based ascent profiles to reach a given suborbital trajectory using minimal fuel. One of my first C++ programs so may contain bad practices.
+ - ```primer.py```: Uses primer vector theory to optimize ascent profiles.
+ - ```primer2.py```: Uses primer vector theory to optimize ascent profiles.
  - ```prop.py```: (Unsuccessfully) calculates aspects of KSP helicopters.
  - ```propwing2.py```: Calculates the optimal blade angles for prop-wing craft.
  - ```rapiermaxspeed.py```: (Somewhat successfully) calculates parameters of RAPIER-based Kerbin SSTOs.
