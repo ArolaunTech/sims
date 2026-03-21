@@ -1,9 +1,13 @@
 #include <vector>
+#include <array>
 #include <cmath>
 #include <iostream>
 
 #include "random.h"
 #include "consts.h"
+
+#ifndef CURVES_H
+#define CURVES_H
 
 struct TaylorCurve {
 	std::vector<double> coeffs;
@@ -293,3 +297,63 @@ FourierCurve operator*(const double lhs, const FourierCurve& rhs) {
 FourierCurve operator-(const FourierCurve& lhs, const FourierCurve& rhs) {
 	return lhs + rhs * -1.0;
 }
+
+struct HermiteSpline {
+	std::vector<double> xs, ys, ldys, rdys;
+
+	HermiteSpline() {
+		xs.clear();
+		ys.clear();
+		ldys.clear();
+		rdys.clear();
+	}
+
+	HermiteSpline(std::vector<std::array<double, 4> > keys) {
+		xs.clear();
+		ys.clear();
+		ldys.clear();
+		rdys.clear();
+
+		for (std::size_t i = 0; i < keys.size(); i++) {
+			xs.push_back(keys[i][0]);
+			ys.push_back(keys[i][1]);
+			ldys.push_back(keys[i][2]);
+			rdys.push_back(keys[i][3]);
+		}
+	}
+
+	double evaluate(double x) const {
+		std::size_t numPoints = xs.size();
+
+		if (numPoints == 0) return 0;
+
+		// i is the index with the first xs greater than x.
+		// If no such index exists, i will be the length of xs.
+		std::size_t i = 0;
+		for (; i < numPoints; i++) {
+			if (xs[i] > x) break;
+		}
+
+		// find y
+		if (i == 0) {
+			return ys[0] + (x - xs[0]) * ldys[0];
+		}
+
+		if (i == numPoints) {
+			return ys[numPoints - 1] + (x - xs[numPoints - 1]) * rdys[numPoints - 1];
+		}
+
+		double interval = xs[i] - xs[i - 1];
+		double t = (x - xs[i - 1]) / interval;
+
+		double y0mult = 2 * t * t * t - 3 * t * t + 1;
+		double y1mult = -2 * t * t * t + 3 * t * t;
+
+		double m0mult = interval * (t * t * t - 2 * t * t + t);
+		double m1mult = interval * (t * t * t - t * t);
+
+		return y0mult * ys[i - 1] + y1mult * ys[i] + m0mult * rdys[i - 1] + m1mult * ldys[i];
+	}
+};
+
+#endif

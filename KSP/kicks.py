@@ -46,15 +46,15 @@ planetG = 9.81
 planetStdGP = planetG * planetR * planetR
 
 #Initial orbit
-initPeriapsis = 72500
-initApoapsis = 191200
-timeUntilPeriapsis = 1708
+initPeriapsis = 70200
+initApoapsis = 118000
+timeUntilPeriapsis = 1709
 
 #Target body
 targetSMA = 12000000
 targetEccentricity = 0
 targetArgP = 0
-targetV = 2
+targetV = 1.8
 
 #Calculations
 initSMA = planetR + 0.5 * (initPeriapsis + initApoapsis)
@@ -103,7 +103,7 @@ finalTransferTime *= finalPeriod/(2 * np.pi)
 
 #Optimization settings
 numBurns = 0
-maxBurn = 50
+maxBurn = 100
 
 if maxBurn * numBurns < burnRequired:
 	print("Not enough burns provided, bumping it up to " + str(int(np.ceil(burnRequired/maxBurn))) + " burns")

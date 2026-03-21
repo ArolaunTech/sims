@@ -1,0 +1,3 @@
+[submodule "KSP/configs"]
+	path = KSP/configs
+	url = https://github.com/Kopernicus/kittopia-dumps.git

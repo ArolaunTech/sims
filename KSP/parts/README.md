@@ -1,0 +1,1 @@
+Part configs from the KSP wiki: https://wiki.kerbalspaceprogram.com/wiki/Category:Part_configuration_files

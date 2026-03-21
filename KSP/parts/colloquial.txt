@@ -1,0 +1,6 @@
+jetEngineAfterburning = Panther, J-404
+jetEngineBasic = Wheesley, J-33
+jetEngineBig = Goliath, J-90
+jetEngineTurbo = Whiplash, J-X4
+rapierEngine = Rapier, RAPIER, R.A.P.I.E.R, CR-7
+smallJetEngine = Juno, J-20

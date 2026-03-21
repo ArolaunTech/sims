@@ -8,7 +8,8 @@ enum FuelType {
 	FUEL_LFOX,
 	FUEL_LF,
 	FUEL_XENON,
-	FUEL_MP
+	FUEL_MP,
+	FUEL_SF
 };
 
 const std::map<FuelType, double> fuel_ratios = {
