@@ -12,7 +12,7 @@ System loadSystem(std::string filepath) {
 
 	for (const auto& entry : std::filesystem::directory_iterator(filepath + "/Configs")) {
 		if (std::filesystem::path(entry.path()).extension() != ".cfg") continue;
-		
+
 		// Read file
 		std::string config = readfile(entry.path());
 
@@ -48,25 +48,11 @@ System loadSystem(std::string filepath) {
 
 		// Create body
 		Body body;
-		for (std::size_t i = 0; i < curr->words.size() - 2; i++) {
-			if (curr->words[i] == "name" && curr->words[i + 1] == "=") {
-				body.name = curr->words[i + 2];
-			}
-		}
+		body.name = getvalue(*curr, "name")[0];
 
-		for (std::size_t i = 0; i < properties->words.size() - 2; i++) {
-			if (properties->words[i] == "radius" && properties->words[i + 1] == "=") {
-				body.radius = std::stod(properties->words[i + 2]);
-			}
-
-			if (properties->words[i] == "gravParameter" && properties->words[i + 1] == "=") {
-				body.GM = std::stod(properties->words[i + 2]);
-			}
-
-			if (properties->words[i] == "rotationPeriod" && properties->words[i + 1] == "=") {
-				body.rotperiod = std::stod(properties->words[i + 2]);
-			}
-		}
+		body.radius = std::stod(getvalue(*properties, "radius")[0]);
+		body.GM = std::stod(getvalue(*properties, "gravParameter")[0]);
+		body.rotperiod = std::stod(getvalue(*properties, "rotationPeriod")[0]);
 
 		body.atmospheric = false;
 		body.atmosphere.oxygen = false;
@@ -75,6 +61,9 @@ System loadSystem(std::string filepath) {
 		if (atmosphere != nullptr) {
 			body.atmospheric = true;
 
+			body.atmosphere.adiabaticindex = std::stod(getvalue(*atmosphere, "adiabaticIndex")[0]);
+			body.atmosphere.molarmass = std::stod(getvalue(*atmosphere, "atmosphereMolarMass")[0]);
+
 			for (std::size_t i = 0; i < atmosphere->words.size() - 2; i++) {
 				if (
 					atmosphere->words[i] == "oxygen" && 
@@ -82,14 +71,6 @@ System loadSystem(std::string filepath) {
 					(atmosphere->words[i + 2] == "true" || atmosphere->words[i + 2] == "True")
 				) {
 					body.atmosphere.oxygen = true;
-				}
-
-				if (atmosphere->words[i] == "adiabaticIndex" && atmosphere->words[i + 1] == "=") {
-					body.atmosphere.adiabaticindex = std::stod(atmosphere->words[i + 2]);
-				}
-
-				if (atmosphere->words[i] == "atmosphereMolarMass" && atmosphere->words[i + 1] == "=") {
-					body.atmosphere.molarmass = std::stod(atmosphere->words[i + 2]);
 				}
 
 				if (

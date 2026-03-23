@@ -181,4 +181,27 @@ ConfigTree parsetree(const std::string& config, int index, std::string name, int
 	return out;
 }
 
+std::vector<std::string> getvalue(const ConfigTree& node, std::string key) {
+	std::vector<std::string> out;
+
+	for (std::size_t i = 0; i < node.words.size() - 2; i++) {
+		if (node.words[i] != key) continue;
+		if (node.words[i + 1] != "=") continue;
+
+		for (std::size_t j = i + 2; j < node.words.size(); j++) {
+			out.push_back(node.words[j]);
+
+			if (node.words[j] == "=") break;
+		}
+
+		if (out[out.size() - 1] == "=") {
+			out.pop_back();
+			out.pop_back();
+		}
+		break;
+	}
+
+	return out;
+}
+
 #endif
