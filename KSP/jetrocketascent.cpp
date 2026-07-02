@@ -118,7 +118,10 @@ Result simulate(const Body& body, const JetEngine& jet, const Engine& rocket, co
 		periapsis = sma * (1 - e) - body.radius;
 
 		if (alt < 0) break;
-		if (apoapsis > 90000 && periapsis > -380000) {
+		if (body.atmosphere.mindensity(alt) * svel * svel * svel > 2e9) break;
+		if (svel > 1900) break;
+
+		if (apoapsis > 90000 && periapsis > -380000 && alt > 25000) {
 			score = mass;
 			break;
 		}
@@ -144,7 +147,7 @@ Result simulate(const Body& body, const JetEngine& jet, const Engine& rocket, co
 		y += vy * dt;
 		mass -= fc * dt;
 
-		score = periapsis;
+		score = periapsis - 1e6;
 	}
 
 	if (log) {
@@ -172,7 +175,7 @@ int main() {
 	JetEngine juno;
 
 	for (const auto& jetpair : catalog.jets) {
-		if (jetpair.first == "Juno") juno = jetpair.second;
+		if (jetpair.first == "Panther") juno = jetpair.second;
 	}
 
 	Engine rocket = engines.find("Spark")->second;
@@ -184,9 +187,9 @@ int main() {
 	InputParams inputs, best;
 
 	inputs.code = std::vector<std::array<double, 3> >{{0.25, 20, 0}, {0.15, 20, 0}, {0.095, 40, 0}, {0.055, 110, 0}, {0.1, 5, 1}, {0.15, 5, 1}, {0.2, 5, 1}, {0.25, 5, 1}, {0.3, 5, 1}, {0.35, 5, 1}, {0.4, 5, 1}, {0.5, 5, 1}};
-	inputs.mass = 3000;
-	inputs.takeoffspeed = 50;
-	inputs.wingarea = 0.5;
+	inputs.mass = 4510;
+	inputs.takeoffspeed = 80;
+	inputs.wingarea = 0.42;
 	inputs.friction = 15000;
 	inputs.wingincidence = 0 * pi / 180;
 
@@ -196,7 +199,7 @@ int main() {
 
 	std::cout << bestout.score << "\n";
 
-	for (int i = 0; i < 1000000; i++) {
+	for (int i = 0; i < 10000000; i++) {
 		inputs = best;
 		for (std::size_t j = 0; j < inputs.code.size(); j++) {
 			inputs.code[j][0] += normal(generator) * 0.001;
@@ -213,16 +216,16 @@ int main() {
 		Result currout = simulate(kerbin, juno, rocket, inputs);
 
 		if (currout.score > bestout.score) {
-			std::cout << i << " " << currout.score << "\n";
-
 			bestout = currout;
 			best = inputs;
+
+			simulate(kerbin, juno, rocket, inputs, true);
 
 			for (std::size_t j = 0; j < best.code.size(); j++) {
 				std::cout << best.code[j][0] << " " << best.code[j][1] << " " << best.code[j][2] << "\n";
 			}
 
-			simulate(kerbin, juno, rocket, inputs, true);
+			std::cout << i << " " << currout.score << "\n";
 
 			std::cout << "\n";
 		}

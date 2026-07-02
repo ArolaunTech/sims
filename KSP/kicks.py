@@ -37,7 +37,7 @@ def getTransferTime(waits, burns):
 def eval(waits, burns):
 	time = getTransferTime(waits, burns)
 	err = (time - requiredTime)/targetPeriod%1
-	err = 1.01 - 2 * abs(err - 0.5)
+	err = 1 - 2 * abs(err - 0.5)
 	return err * max(time, targetPeriod)
 
 #Planet parameters
@@ -46,15 +46,15 @@ planetG = 9.81
 planetStdGP = planetG * planetR * planetR
 
 #Initial orbit
-initPeriapsis = 70200
-initApoapsis = 118000
-timeUntilPeriapsis = 1709
+initPeriapsis = 70508.7
+initApoapsis = 157334
+timeUntilPeriapsis = 1024
 
 #Target body
 targetSMA = 12000000
 targetEccentricity = 0
 targetArgP = 0
-targetV = 1.8
+targetV = 5
 
 #Calculations
 initSMA = planetR + 0.5 * (initPeriapsis + initApoapsis)
@@ -101,9 +101,11 @@ finalIntersectEccentricAnomaly = np.arctan(np.tan(finalIntersectTrueAnomaly/2)/n
 finalTransferTime = finalIntersectEccentricAnomaly - finalEccentricity * np.sin(finalIntersectEccentricAnomaly)
 finalTransferTime *= finalPeriod/(2 * np.pi)
 
+print(requiredTime)
+
 #Optimization settings
 numBurns = 0
-maxBurn = 100
+maxBurn = 90
 
 if maxBurn * numBurns < burnRequired:
 	print("Not enough burns provided, bumping it up to " + str(int(np.ceil(burnRequired/maxBurn))) + " burns")
@@ -124,7 +126,7 @@ for i in range(100000):
 		if newWaits[j] < 0:
 			newWaits[j] = 0
 	for j in range(numBurns - 1):
-		delta = 30 * np.random.normal()
+		delta = 0 * np.random.normal()
 		newBurns[j] += delta
 		for k in range(numBurns - 1):
 			newBurns[k] -= delta/numBurns

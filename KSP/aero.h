@@ -2,6 +2,7 @@
 
 #include "curves.h"
 #include "configreader.h"
+#include "system.h"
 
 #ifndef AERO_H
 #define AERO_H

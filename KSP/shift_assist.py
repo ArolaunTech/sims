@@ -27,15 +27,15 @@ solarGravASL = 1.7
 solarMass = 9.81*solarGravASL*solarRadius**2/G
 
 #Planet parameters
-planetAltitude = 9832684544
+planetAltitude = 13599840256
 planetVelocity = (G*solarMass/planetAltitude)**0.5
 planetOrbitalPeriod = 2*np.pi*planetAltitude/planetVelocity
 
 #Simulation parameters
-vRelative = 3970
-maxPlanetOrbits = 10
-targetShiftSum = (10 + 10*np.random.random()) * np.pi/180
-maxShifts = 3
+vRelative = 3890
+maxPlanetOrbits = 2
+targetShiftSum = 2 * np.pi -135 * np.pi / 180
+maxShifts = 1
 
 #Generate allowed phase shift angles
 possibleDelta = np.array([])
@@ -116,6 +116,7 @@ print(minError)
 print(minErrorChoice)
 print([planetOrbits[angle] for angle in minErrorChoice])
 aEjection, eEjection, pEjection = calcOrbitParameters(minErrorChoice)
+print(aEjection * (1 + eEjection), aEjection * (1 - eEjection))
 prefix = 0
 for i in range(len(aEjection)):
 	pEjection[i] += prefix

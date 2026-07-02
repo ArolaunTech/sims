@@ -210,6 +210,35 @@ while not bresult:
 
 	bresult, bscore = simulate(bpx, bpy, bdpx, bdpy)
 
+for i in range(10000):
+	angle = generator.uniform(0, 2 * np.pi)
+	npx = np.cos(angle)
+	npy = np.sin(angle)
+	ndpx = generator.normal(scale=0.02)
+	ndpy = generator.normal(scale=0.02)
+
+	nresult, nscore = simulate(npx, npy, ndpx, ndpy)
+
+	if not nresult:
+		continue
+	if nscore >= bscore:
+		continue
+
+	bpx = npx
+	bpy = npy
+	bdpx = ndpx
+	bdpy = ndpy
+
+	bscore = nscore
+
+	print(bpx, bpy, bdpx, bdpy, bscore, initmass * np.exp(-bscore / isp / g0))
+
+	simulate(bpx, bpy, bdpx, bdpy, True)
+	print(i, 0)
+
+	if (bscore < 750): 
+		continue
+
 for i in range(100000):
 	npx = bpx + generator.normal(scale=0.0002)
 	npy = bpy + generator.normal(scale=0.0002)
@@ -233,4 +262,4 @@ for i in range(100000):
 	print(bpx, bpy, bdpx, bdpy, bscore, initmass * np.exp(-bscore / isp / g0))
 
 	simulate(bpx, bpy, bdpx, bdpy, True)
-	print(i)
+	print(i, 1)

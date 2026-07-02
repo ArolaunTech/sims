@@ -41,10 +41,12 @@ A lot of these programs are unfinished and never will be completed.
  - ```ion_maximizer.py```: Maximizes the thrust of ion engines undergoing EC starvation.
  - ```j5ssto.py```: Optimizes Jool-5 SSTO route for maximum fractional payload.
  - ```jets.cpp```: Calculates payload fractions for different jets.
+ - ```jetrocketascent.cpp```: Calculates and ascent with jets and rockets.
  - ```kicks.py```: Optimizes periapsis kicks for closest encounter.
  - ```landingprofileopt.cpp```: Given fuel amounts in orbit, optimizes landing profile to use as little fuel as possible.
  - ```landingtests.py```: Simulates the fuel usage from different landing trajectories.
  - ```landingtestsgeneral.py```: Simulates the fuel usage from different landing trajectories.
+ - ```minlfcircumnavigation.cpp```: Minimizes the fuel needed for a circumnavigation.
  - ```planesim.cpp```: Optimizes RAPIER-based ascent profiles to reach a given suborbital trajectory using minimal fuel. One of my first C++ programs so may contain bad practices.
  - ```primer.py```: Uses primer vector theory to optimize ascent profiles.
  - ```primer2.py```: Uses primer vector theory to optimize ascent profiles.

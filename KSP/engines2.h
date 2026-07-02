@@ -33,6 +33,9 @@ struct JetEngine {
 		double densityMult = atmCurve.evaluate(density / standarddensity);
 
 		double totalMult = machMult * densityMult;
+
+		if (totalMult < 0) return 0;
+
 		return thrust * flowcap(totalMult);
 	}
 
